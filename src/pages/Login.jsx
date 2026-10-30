@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useCampus } from '../context/CampusContext';
 import {
   ShieldCheck,
@@ -21,11 +21,20 @@ import {
   Check,
   RefreshCw,
   X,
-  HelpCircle
+  HelpCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { PRESET_USERS } from '../data/initialData';
 import { signInWithGoogle } from '../services/firebase';
 import { sendOtpEmail } from '../services/emailService';
+import {
+  COLLEGE_INFO,
+  COLLEGE_DEPARTMENTS,
+  COLLEGE_STUDENTS,
+  findStudentByRoll,
+  findStudentByEmail,
+  verifyCollegeEnrollment
+} from '../data/collegeRoster';
 
 export default function Login() {
   const { loginAsStudent, loginAsAdmin, showToast } = useCampus();
@@ -35,6 +44,9 @@ export default function Login() {
 
   // Student Form State
   const [studentEmail, setStudentEmail] = useState('');
+  const [studentRoll, setStudentRoll] = useState('2024-CS-041');
+  const [studentDept, setStudentDept] = useState('School of Computer Science & Engineering');
+  const [campusCode, setCampusCode] = useState('CAMPUS-2026');
   const [studentPassword, setStudentPassword] = useState('123456');
   const [showStudentPassword, setShowStudentPassword] = useState(false);
   const [studentOtp, setStudentOtp] = useState(['', '', '', '', '', '']);
@@ -43,6 +55,19 @@ export default function Login() {
   const [codeSent, setCodeSent] = useState(false);
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [emailDeliverySent, setEmailDeliverySent] = useState(false);
+  const [showNonCollegeModal, setShowNonCollegeModal] = useState(false);
+
+  // Check if entered credentials match the official College Master Directory
+  const matchedStudent = useMemo(() => {
+    return findStudentByRoll(studentRoll) || findStudentByEmail(studentEmail);
+  }, [studentRoll, studentEmail]);
+
+  // Auto-sync department when student is matched in master directory
+  useEffect(() => {
+    if (matchedStudent?.department) {
+      setStudentDept(matchedStudent.department);
+    }
+  }, [matchedStudent]);
 
   // Admin/Teacher Form State
   const [adminEmail, setAdminEmail] = useState('prof.tan@kyzera.edu');
@@ -64,7 +89,25 @@ export default function Login() {
 
   const handleSendVerificationCode = async () => {
     if (!studentEmail.trim()) {
-      showToast('Please enter your Gmail address first', 'warning');
+      showToast('Please enter your student email address first', 'warning');
+      return;
+    }
+
+    // 1. Enforce College Student Roll Number
+    if (!studentRoll.trim()) {
+      showToast('⛔ College Roll Number Required: Only enrolled students can access Kyzera.', 'error');
+      setShowNonCollegeModal(true);
+      return;
+    }
+
+    // 2. Enforce Campus Student Passcode (Blocks unauthorized non-college users)
+    const validCampusCodes = ['CAMPUS-2026', 'KYZERA-2026', 'COLLEGE-2026', 'STUDENT-PASS'];
+    const isCollegeDomain = studentEmail.endsWith('.edu') || studentEmail.endsWith('.ac.in') || studentEmail.endsWith('@kyzera.edu');
+    const isAuthorizedCampusCode = validCampusCodes.includes(campusCode.trim().toUpperCase());
+
+    if (!isCollegeDomain && !isAuthorizedCampusCode) {
+      showToast('⛔ Access Denied: Non-College User. You must enter a valid College Student Passcode (CAMPUS-2026) to verify enrollment.', 'error');
+      setShowNonCollegeModal(true);
       return;
     }
 
@@ -80,7 +123,7 @@ export default function Login() {
     setGeneratedOtp(randomOtp);
 
     const emailPrefix = studentEmail.split('@')[0] || 'student';
-    const cleanName = emailPrefix
+    const cleanName = matchedStudent?.name || emailPrefix
       .split(/[._-]/)
       .map(part => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ') || 'Student';
@@ -99,7 +142,7 @@ export default function Login() {
 
     // Clear input boxes so user types the code received in Gmail
     setStudentOtp(['', '', '', '', '', '']);
-    showToast(`✅ Random OTP sent to ${studentEmail}! Please check your Gmail inbox.`, 'success');
+    showToast(`✅ College Student Verified! OTP sent to ${studentEmail}.`, 'success');
 
     setTimeout(() => {
       const firstInput = document.getElementById('student-otp-0');
@@ -121,6 +164,23 @@ export default function Login() {
 
   const handleStudentSubmit = (e) => {
     e?.preventDefault();
+
+    if (!studentRoll.trim()) {
+      showToast('⛔ Access Denied: College Roll Number required.', 'error');
+      setShowNonCollegeModal(true);
+      return;
+    }
+
+    const validCampusCodes = ['CAMPUS-2026', 'KYZERA-2026', 'COLLEGE-2026', 'STUDENT-PASS'];
+    const isCollegeDomain = studentEmail.endsWith('.edu') || studentEmail.endsWith('.ac.in') || studentEmail.endsWith('@kyzera.edu');
+    const isAuthorizedCampusCode = validCampusCodes.includes(campusCode.trim().toUpperCase());
+
+    if (!isCollegeDomain && !isAuthorizedCampusCode) {
+      showToast('⛔ Access Denied: Non-College User. Only verified enrolled college students are granted portal access.', 'error');
+      setShowNonCollegeModal(true);
+      return;
+    }
+
     if (studentPassword.trim() !== '123456') {
       showToast('Incorrect password! Student password is 123456', 'error');
       return;
@@ -144,24 +204,28 @@ export default function Login() {
       .map(part => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ') || 'Student';
 
-    // Generate unique roll number from email hash so two different students NEVER have the same roll number!
+    const verifiedName = matchedStudent?.name || (cleanName === 'Student' ? emailPrefix : cleanName);
+    const verifiedDept = matchedStudent?.department || studentDept || 'School of Computer Science & Engineering';
+    const verifiedDorm = matchedStudent?.dorm || 'Hostel Campus';
+
+    // Generate unique anon token number
     let hash = 0;
     for (let i = 0; i < studentEmail.length; i++) {
       hash = (hash * 31 + studentEmail.charCodeAt(i)) % 900;
     }
-    const uniqueRoll = `2024-CS-${String(Math.abs(hash) + 100).padStart(3, '0')}`;
     const uniqueAnonNum = Math.abs(hash) + 1000;
 
     loginAsStudent({
       email: studentEmail.trim().toLowerCase(),
-      name: cleanName === 'Student' ? emailPrefix : cleanName,
+      name: verifiedName,
       role: 'Student',
       anonymousId: `Anonymous Student #CP-${uniqueAnonNum}`,
       token: `${uniqueAnonNum}-A`,
-      department: 'School of Computer Science & Engineering',
-      roll: uniqueRoll,
-      dorm: 'Hostel Block C, Room 312',
-      verified: true
+      department: verifiedDept,
+      roll: studentRoll.trim().toUpperCase(),
+      dorm: verifiedDorm,
+      verified: true,
+      isCollegeVerified: true
     });
   };
 
@@ -325,23 +389,41 @@ export default function Login() {
             {/* TAB 1: STUDENT LOGIN */}
             {roleTab === 'student' ? (
               <div>
-                <div className="flex items-center space-x-2 text-xs font-semibold text-blue-400 uppercase tracking-wider mb-1">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                  <span>STUDENT VERIFIED ACCESS</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2 text-xs font-semibold text-blue-400 uppercase tracking-wider">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span>ENROLLED STUDENTS ONLY</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowNonCollegeModal(true)}
+                    className="text-[11px] text-amber-400 hover:text-amber-300 underline font-mono flex items-center space-x-1"
+                  >
+                    <span>Non-College User?</span>
+                  </button>
+                </div>
+
+                {/* College Student Gatekeeper Banner */}
+                <div className="mb-4 p-3 rounded-xl bg-blue-950/40 border border-blue-800/60 flex items-start space-x-2.5 text-xs">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-slate-300 leading-snug">
+                    <span className="font-bold text-white block">Campus Identity Gatekeeper:</span>
+                    Access is restricted to verified university students. External visitors cannot enter without an enrolled <strong className="text-blue-300">College Roll Number</strong> and active campus passcode.
+                  </div>
                 </div>
 
                 <h2 className="text-2xl font-bold text-white tracking-tight">
                   Student Sign In
                 </h2>
                 <p className="text-xs text-slate-400 mt-1 mb-5">
-                  Enter your Gmail and password (123456) to receive your verification OTP.
+                  Enter your student credentials &amp; roll number to receive your verification OTP.
                 </p>
 
                 <form onSubmit={handleStudentSubmit} className="space-y-4">
-                  {/* Field 1: Gmail Address */}
+                  {/* Field 1: Email Address */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Student Gmail Address
+                      Student Institutional / Gmail Address <span className="text-red-400">*</span>
                     </label>
 
                     <div className="relative">
@@ -359,7 +441,76 @@ export default function Login() {
                     </div>
                   </div>
 
-                  {/* Field 2: Password (Default: 123456) */}
+                  {/* Field 2: College Roll Number & Department Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold text-slate-300">
+                          College Roll No. <span className="text-red-400">*</span>
+                        </label>
+                        {matchedStudent && (
+                          <span className="text-[10px] text-emerald-400 font-mono font-bold truncate max-w-[140px]" title={matchedStudent.name}>
+                            ✓ {matchedStudent.name}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={studentRoll}
+                        onChange={(e) => setStudentRoll(e.target.value)}
+                        placeholder="2024-CS-041"
+                        className="w-full bg-[#0a0e17] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono uppercase"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                        Academic Department
+                      </label>
+                      <select
+                        value={studentDept}
+                        onChange={(e) => setStudentDept(e.target.value)}
+                        className="w-full bg-[#0a0e17] border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 truncate"
+                      >
+                        {COLLEGE_DEPARTMENTS.map((dept) => (
+                          <option key={dept} value={dept}>
+                            {dept}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Field 3: Campus Student Passcode (Gatekeeper against outsiders) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-300">
+                        Campus Student Access Code <span className="text-red-400">*</span>
+                      </label>
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800">
+                        Code: CAMPUS-2026
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                        <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+                      </span>
+                      <input
+                        type="text"
+                        value={campusCode}
+                        onChange={(e) => setCampusCode(e.target.value)}
+                        placeholder="CAMPUS-2026"
+                        className="w-full bg-[#0a0e17] border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono uppercase tracking-wider"
+                        required
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Official passcode issued to enrolled students. Non-college outsiders are denied access.
+                    </p>
+                  </div>
+
+                  {/* Field 4: Password (Default: 123456) */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-semibold text-slate-300">
@@ -636,6 +787,70 @@ export default function Login() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* NON-COLLEGE RESTRICTION POLICY MODAL */}
+      {showNonCollegeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-md bg-[#0f172a] border border-amber-500/40 rounded-2xl p-6 shadow-2xl">
+            <button
+              onClick={() => setShowNonCollegeModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-3 text-amber-400 mb-3">
+              <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                <AlertTriangle className="w-6 h-6 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">University Student Gatekeeper</h3>
+                <span className="text-[11px] text-amber-300 font-mono font-bold">Institutional Privacy &amp; Access Policy</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed mb-4">
+              Kyzera is a closed-campus grievance triage and resolution platform reserved exclusively for enrolled university students and faculty.
+            </p>
+
+            <div className="space-y-3 bg-[#0a0e17] border border-slate-800 rounded-xl p-3.5 mb-5 text-xs">
+              <div className="flex items-start space-x-2.5">
+                <span className="text-red-400 font-bold">✕</span>
+                <span className="text-slate-300">
+                  <strong className="text-white">Non-College Public Users:</strong> Outsiders without university affiliation cannot enter or submit complaints.
+                </span>
+              </div>
+              <div className="flex items-start space-x-2.5">
+                <span className="text-emerald-400 font-bold">✓</span>
+                <span className="text-slate-300">
+                  <strong className="text-white">Enrolled Students:</strong> Enter your verified <span className="text-blue-300 font-mono">College Roll Number</span> and official Campus Passcode (<span className="text-emerald-300 font-mono font-bold">CAMPUS-2026</span>) to receive OTP.
+                </span>
+              </div>
+              <div className="flex items-start space-x-2.5">
+                <span className="text-purple-400 font-bold">✓</span>
+                <span className="text-slate-300">
+                  <strong className="text-white">Faculty &amp; Staff:</strong> Switch to the <em>Teacher / Staff</em> console tab and authenticate using your clearance PIN (<span className="text-purple-300 font-mono">2345</span>).
+                </span>
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-[11px] mb-4 flex items-center justify-between font-mono">
+              <span>Campus Passcode:</span>
+              <span className="font-bold bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-700">CAMPUS-2026</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCampusCode('CAMPUS-2026');
+                setShowNonCollegeModal(false);
+              }}
+              className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-colors flex items-center justify-center space-x-2"
+            >
+              <span>I Am an Enrolled Student — Apply Passcode</span>
+            </button>
           </div>
         </div>
       )}
