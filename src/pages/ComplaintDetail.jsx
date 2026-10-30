@@ -23,6 +23,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import LightboxModal from '../components/LightboxModal';
+import { isTicketOwner } from '../utils/crypto';
 
 export default function ComplaintDetail() {
   const {
@@ -50,11 +51,7 @@ export default function ComplaintDetail() {
 
   const ticket = (tickets && tickets.find(t => t.id === selectedTicketId)) || (tickets && tickets[0]);
   const isTeacherOrAdmin = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
-  const isOwner = 
-    (currentUser?.email && ticket?.studentEmail && ticket.studentEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
-    (currentUser?.roll && ticket?.studentRoll && ticket.studentRoll.toLowerCase() === currentUser.roll.toLowerCase()) ||
-    (currentUser?.name && ticket?.studentRealName && ticket.studentRealName.toLowerCase() === currentUser.name.toLowerCase()) ||
-    (currentUser?.anonymousId && ticket?.studentId && currentUser.anonymousId.includes(ticket.studentId));
+  const isOwner = isTicketOwner(ticket, currentUser);
 
   if (!ticket) {
     return (
@@ -219,7 +216,7 @@ export default function ComplaintDetail() {
                   </select>
                 </div>
               ) : (
-                ticket.status !== 'Resolved' && (
+                ticket.status !== 'Resolved' && isOwner && (
                   <button
                     onClick={() => {
                       if (window.confirm('Mark this complaint as resolved / withdrawn?')) {
@@ -426,7 +423,7 @@ export default function ComplaintDetail() {
                       ))}
                     </div>
                   </div>
-                ) : (
+                ) : isOwner ? (
                   <div>
                     <p className="text-xs text-slate-300 mb-2">
                       Please rate the resolution speed and quality provided by campus administration:
@@ -473,6 +470,10 @@ export default function ComplaintDetail() {
                       </button>
                     </div>
                   </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">
+                    Awaiting satisfaction rating from verified student submitter.
+                  </p>
                 )}
               </div>
             )}

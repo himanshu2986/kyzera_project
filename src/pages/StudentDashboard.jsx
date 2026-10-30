@@ -20,7 +20,7 @@ import {
   Lock,
   User
 } from 'lucide-react';
-import { exportToCSV } from '../utils/crypto';
+import { exportToCSV, isTicketOwner } from '../utils/crypto';
 
 export default function StudentDashboard() {
   const {
@@ -39,10 +39,16 @@ export default function StudentDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('Recently Updated');
 
+  // Personal complaints filed by current logged in user
+  const myTickets = useMemo(() => {
+    return tickets.filter(t => isTicketOwner(t, currentUser));
+  }, [tickets, currentUser]);
+
   // Filter logic
   const filteredTickets = useMemo(() => {
     return tickets.filter((t) => {
       // Tab filter
+      if (activeTab === 'MyComplaints' && !isTicketOwner(t, currentUser)) return false;
       if (activeTab === 'Active' && t.status === 'Resolved') return false;
       if (activeTab === 'Under Review' && t.status !== 'Under Review') return false;
       if (activeTab === 'In Progress' && t.status !== 'In Progress') return false;
@@ -74,7 +80,7 @@ export default function StudentDashboard() {
       }
       return new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt);
     });
-  }, [tickets, activeTab, selectedCategory, selectedPriority, searchQuery, sortBy]);
+  }, [tickets, currentUser, activeTab, selectedCategory, selectedPriority, searchQuery, sortBy]);
 
   const handleExport = () => {
     const dataToExport = tickets.map(t => ({
@@ -94,6 +100,7 @@ export default function StudentDashboard() {
 
   const counts = {
     all: tickets.length,
+    myComplaints: myTickets.length,
     active: tickets.filter(t => t.status !== 'Resolved').length,
     underReview: tickets.filter(t => t.status === 'Under Review').length,
     inProgress: tickets.filter(t => t.status === 'In Progress').length,
@@ -160,14 +167,14 @@ export default function StudentDashboard() {
         {/* Card 1 */}
         <div className="p-5 rounded-2xl bg-[#111726] border border-[#1f293d] shadow-lg">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-2">
-            <span>TOTAL FILED</span>
+            <span>MY FILED COMPLAINTS</span>
             <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
               <FileText className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-3xl font-extrabold text-white font-mono">{tickets.length}</div>
+          <div className="text-3xl font-extrabold text-white font-mono">{myTickets.length}</div>
           <p className="text-[11px] text-emerald-400 mt-2 font-medium">
-            {tickets.length === 1 ? '1 active grievance record' : `${tickets.length} active records`}
+            {myTickets.length === 1 ? '1 active grievance record' : `${myTickets.length} personal complaints`}
           </p>
         </div>
 
@@ -221,8 +228,8 @@ export default function StudentDashboard() {
         {/* Tabs Row */}
         <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-slate-800">
           {[
-            { id: 'All', label: `All (${counts.all})` },
-            { id: 'Active', label: `Active (${counts.active})` },
+            { id: 'All', label: `Public Campus Feed (${counts.all})` },
+            { id: 'MyComplaints', label: `My Complaints (${counts.myComplaints})` },
             { id: 'Under Review', label: `Under Review (${counts.underReview})` },
             { id: 'In Progress', label: `In Progress (${counts.inProgress})` },
             { id: 'Resolved', label: `Resolved (${counts.resolved})` },
@@ -376,14 +383,9 @@ export default function StudentDashboard() {
                   {/* Submitter Privacy Badge (Students NEVER see other students' personal details) */}
                   <div className="mt-3 inline-flex items-center space-x-2 text-[11px] px-2.5 py-1 rounded-md bg-slate-900/90 border border-slate-800">
                     <Lock className="w-3 h-3 text-blue-400" />
-                    {(
-                      (currentUser?.email && ticket.studentEmail && ticket.studentEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
-                      (currentUser?.roll && ticket.studentRoll && ticket.studentRoll.toLowerCase() === currentUser.roll.toLowerCase()) ||
-                      (currentUser?.name && ticket.studentRealName && ticket.studentRealName.toLowerCase() === currentUser.name.toLowerCase()) ||
-                      (currentUser?.anonymousId && ticket.studentId && currentUser.anonymousId.includes(ticket.studentId))
-                    ) ? (
+                    {isTicketOwner(ticket, currentUser) ? (
                       <span className="text-emerald-300 font-medium">
-                        Submitted by You (<span className="text-white font-semibold">{ticket.studentRealName || currentUser?.name}</span> • Roll: {ticket.studentRoll || currentUser?.roll}) — Masked from peers
+                        Submitted by You (<span className="text-white font-semibold">{currentUser?.name || ticket.studentRealName}</span> • Roll: {currentUser?.roll || ticket.studentRoll}) — Masked from peers
                       </span>
                     ) : (
                       <span className="text-slate-400">

@@ -26,6 +26,31 @@ export function generateAnonymousId() {
   return `#CP-${num}`;
 }
 
+export function isTicketOwner(ticket, user) {
+  if (!ticket || !user) return false;
+
+  // 1. Primary and definitive check: Email address
+  if (user.email && ticket.studentEmail) {
+    return user.email.trim().toLowerCase() === ticket.studentEmail.trim().toLowerCase();
+  }
+
+  // 2. Fallback: Check anonymous studentId token if studentEmail is absent
+  if (!ticket.studentEmail && user.anonymousId && ticket.studentId) {
+    const cleanUserAnon = user.anonymousId.replace(/[^0-9]/g, '');
+    const cleanTicketAnon = String(ticket.studentId).replace(/[^0-9]/g, '');
+    if (cleanUserAnon && cleanTicketAnon && cleanUserAnon === cleanTicketAnon) {
+      return true;
+    }
+  }
+
+  // 3. Fallback: Exact name match ONLY if ticket has NO email and NO token
+  if (!ticket.studentEmail && !ticket.studentId && user.name && ticket.studentRealName) {
+    return user.name.trim().toLowerCase() === ticket.studentRealName.trim().toLowerCase();
+  }
+
+  return false;
+}
+
 export function formatTimeAgo(timestamp) {
   const date = new Date(timestamp);
   const now = new Date();

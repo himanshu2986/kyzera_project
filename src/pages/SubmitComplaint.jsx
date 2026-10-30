@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCampus } from '../context/CampusContext';
+import { isTicketOwner } from '../utils/crypto';
 import {
   FileText,
   Sparkles,
@@ -30,19 +31,7 @@ export default function SubmitComplaint() {
 
   const myComplaintsCount = useMemo(() => {
     if (!tickets || tickets.length === 0) return 0;
-    const userEmail = currentUser?.email?.trim().toLowerCase();
-    const userName = currentUser?.name?.trim().toLowerCase();
-    const userAnonId = currentUser?.anonymousId?.trim().toLowerCase();
-
-    const matches = tickets.filter(t => {
-      if (userEmail && t.studentEmail && t.studentEmail.trim().toLowerCase() === userEmail) return true;
-      if (userName && t.studentRealName && t.studentRealName.trim().toLowerCase() === userName) return true;
-      if (userAnonId && t.studentId && userAnonId.includes(t.studentId.trim().toLowerCase())) return true;
-      return false;
-    });
-
-    if (matches.length > 0) return matches.length;
-    return tickets.length;
+    return tickets.filter(t => isTicketOwner(t, currentUser)).length;
   }, [tickets, currentUser]);
 
   const [formType, setFormType] = useState('Complaint'); // 'Complaint' | 'Suggestion'
@@ -170,7 +159,7 @@ export default function SubmitComplaint() {
         clusterNearby: 1
       });
     }
-    // 4. IT & Network domain
+        // 4. IT & Network domain
     else if (
       text.includes('wifi') ||
       text.includes('wi-fi') ||

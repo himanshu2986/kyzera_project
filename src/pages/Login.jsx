@@ -142,16 +142,24 @@ export default function Login() {
     const cleanName = emailPrefix
       .split(/[._-]/)
       .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ') || 'Himanshu Thakur';
+      .join(' ') || 'Student';
+
+    // Generate unique roll number from email hash so two different students NEVER have the same roll number!
+    let hash = 0;
+    for (let i = 0; i < studentEmail.length; i++) {
+      hash = (hash * 31 + studentEmail.charCodeAt(i)) % 900;
+    }
+    const uniqueRoll = `2024-CS-${String(Math.abs(hash) + 100).padStart(3, '0')}`;
+    const uniqueAnonNum = Math.abs(hash) + 1000;
 
     loginAsStudent({
-      email: studentEmail || 'thakurhimanshu830@gmail.com',
-      name: cleanName === 'Student' ? 'Himanshu Thakur' : cleanName,
+      email: studentEmail.trim().toLowerCase(),
+      name: cleanName === 'Student' ? emailPrefix : cleanName,
       role: 'Student',
-      anonymousId: `Anonymous Student #CP-${Math.floor(1000 + Math.random() * 9000)}`,
-      token: `${Math.floor(1000 + Math.random() * 9000)}-A`,
+      anonymousId: `Anonymous Student #CP-${uniqueAnonNum}`,
+      token: `${uniqueAnonNum}-A`,
       department: 'School of Computer Science & Engineering',
-      roll: '2024-CS-041',
+      roll: uniqueRoll,
       dorm: 'Hostel Block C, Room 312',
       verified: true
     });
