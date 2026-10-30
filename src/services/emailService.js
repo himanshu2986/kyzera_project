@@ -40,3 +40,40 @@ export const sendOtpEmail = async ({ toEmail, otpCode, studentName }) => {
     return { success: false, error: err.message };
   }
 };
+
+/**
+ * Dispatches real status update notification to the student's Gmail inbox
+ */
+export const sendStatusEmail = async ({
+  toEmail,
+  studentName,
+  ticketId,
+  ticketTitle,
+  oldStatus,
+  newStatus,
+  updatedBy,
+  resolutionNote
+}) => {
+  try {
+    const response = await fetch('/api/send-status-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toEmail: (toEmail || '').trim(),
+        studentName,
+        ticketId,
+        ticketTitle,
+        oldStatus,
+        newStatus,
+        updatedBy,
+        resolutionNote
+      })
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (err) {
+    console.warn('Backend SMTP status endpoint error:', err.message);
+    return { success: false, error: err.message };
+  }
+};

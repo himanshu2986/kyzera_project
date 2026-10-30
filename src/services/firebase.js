@@ -100,28 +100,18 @@ export const subscribeToTicketsRealtime = (onUpdate, onError) => {
   if (!isFirebaseReady()) return () => {};
 
   try {
-    const q = query(collection(db, 'tickets'), orderBy('createdAt', 'desc'));
     return onSnapshot(
-      q,
+      collection(db, 'tickets'),
       (snapshot) => {
         const ticketList = [];
         snapshot.forEach((doc) => {
           ticketList.push({ id: doc.id, ...doc.data() });
         });
+        ticketList.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
         onUpdate(ticketList);
       },
       (err) => {
         console.warn('Firestore tickets subscription note:', err.message);
-        // Fallback to basic collection query if index is building
-        try {
-          return onSnapshot(collection(db, 'tickets'), (snapshot) => {
-            const ticketList = [];
-            snapshot.forEach((doc) => {
-              ticketList.push({ id: doc.id, ...doc.data() });
-            });
-            onUpdate(ticketList);
-          });
-        } catch {}
         if (onError) onError(err);
       }
     );
@@ -146,18 +136,107 @@ export const addTicketToFirebase = async (ticket) => {
   }
 };
 
-export const updateTicketStatusInFirebase = async (ticketId, newStatus) => {
+export const updateTicketStatusInFirebase = async (ticketId, newStatus, note = '') => {
   if (!isFirebaseReady()) return false;
   try {
     const ticketRef = doc(db, 'tickets', ticketId);
     await updateDoc(ticketRef, {
       status: newStatus,
+      resolutionNote: note,
       updatedAt: new Date().toISOString()
     });
     return true;
   } catch (error) {
-    console.error('Error updating ticket in Firebase:', error);
+    console.error('Error updating ticket status in Firebase:', error);
     throw error;
+  }
+};
+
+export const updateTicketUpvotesInFirebase = async (ticketId, newUpvotes, newPriority) => {
+  if (!isFirebaseReady()) return false;
+  try {
+    const ticketRef = doc(db, 'tickets', ticketId);
+    await updateDoc(ticketRef, {
+      upvotes: newUpvotes,
+      priority: newPriority,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (error) {
+    console.error('Error updating upvotes in Firebase:', error);
+    throw error;
+  }
+};
+
+export const updateTicketRatingInFirebase = async (ticketId, rating, comment = '') => {
+  if (!isFirebaseReady()) return false;
+  try {
+    const ticketRef = doc(db, 'tickets', ticketId);
+    await updateDoc(ticketRef, {
+      rating,
+      ratingComment: comment,
+      ratedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (error) {
+    console.error('Error updating rating in Firebase:', error);
+    throw error;
+  }
+};
+
+export const addCommentToFirebase = async (ticketId, comment) => {
+  if (!isFirebaseReady()) return false;
+  try {
+    const ticketRef = doc(db, 'tickets', ticketId);
+    const snap = await getDocs(query(collection(db, 'tickets')));
+    // Update comments array on ticket
+    const currentTicket = snap.docs.find(d => d.id === ticketId);
+    const existingComments = currentTicket ? (currentTicket.data().comments || []) : [];
+    await updateDoc(ticketRef, {
+      comments: [comment, ...existingComments],
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (error) {
+    console.error('Error adding comment in Firebase:', error);
+    throw error;
+  }
+};
+
+export const subscribeToPresenceRealtime = (tabId, role, onUpdate) => {
+  if (!isFirebaseReady()) return () => {};
+  try {
+    const presenceRef = doc(db, 'presence', tabId);
+    setDoc(presenceRef, {
+      role,
+      updatedAt: serverTimestamp()
+    }).catch(() => {});
+
+    const interval = setInterval(() => {
+      setDoc(presenceRef, {
+        role,
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
+    }, 6000);
+
+    const unsubscribe = onSnapshot(collection(db, 'presence'), (snapshot) => {
+      let students = 0;
+      let teachers = 0;
+      snapshot.forEach((d) => {
+        const data = d.data();
+        if (data.role === 'Student') students++;
+        if (data.role === 'Teacher') teachers++;
+      });
+      onUpdate({ students, teachers });
+    }, () => {});
+
+    return () => {
+      clearInterval(interval);
+      deleteDoc(presenceRef).catch(() => {});
+      unsubscribe();
+    };
+  } catch (err) {
+    return () => {};
   }
 };
 

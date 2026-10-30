@@ -214,42 +214,40 @@ export default function SubmitComplaint() {
     }
   }, [title, description]);
 
-  // Quick preset loader for evaluators to test all 4 core problem statement areas instantly
-  const loadPreset = (presetType) => {
-    if (presetType === 'sanitation') {
-      setTitle('Hostel Block C - Water supply disrupted every morning at 6 AM');
-      setLocation('Hostel Block C, Floors 2-4');
-      setDescription('Since Monday Nov 10th, the primary overhead water booster pump for Block C fails to activate during peak morning preparation hours (06:00 AM - 07:30 AM). Over 180 residents are unable to use restrooms or shower before 08:30 AM lectures.');
-    } else if (presetType === 'infrastructure') {
-      setTitle('Academic Block B Room 204 - Ceiling fan regulator sparking with burning smell');
-      setLocation('Academic Block B, Rm 204');
-      setDescription('Switchboard on south wall emits visible sparks when regulator position is turned. Breaker has not tripped but intense smell of burnt insulation was noted during morning lecture.');
-    } else if (presetType === 'academics') {
-      setTitle('Operating Systems Midterm - Grading rubric discrepancy across sections');
-      setLocation('School of Computing, Room 402');
-      setDescription('Question 3(b) had conflicting requirements in the problem specification. TAs deducted 10 points inconsistently across section A and B without standardized grading guidelines.');
-    } else if (presetType === 'services') {
-      setTitle('South Gate Shuttle Bus - 11 PM night route consistently delayed by 45 minutes');
-      setLocation('South Gate Transit Hub');
-      setDescription('The 11:00 PM and 11:30 PM South Gate shuttles have been arriving 35-45 minutes late every weeknight, leaving commuter students stranded outside campus boundaries at midnight.');
-    } else if (presetType === 'it') {
-      setTitle('Central Library 3rd Floor - Wi-Fi dropping continuous packets during exam study hours');
-      setLocation('Central Library, North Wing');
-      setDescription('Signal strength shows 4 bars but DHCP pool runs out of leases between 7 PM and 10 PM, causing continual packet timeout during exam preparation.');
-    }
-    showToast(`Loaded ${presetType.toUpperCase()} test case for intelligent triage demo`, 'info');
-  };
-
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
-    const newItems = files.map(f => ({
-      name: f.name,
-      size: `${(f.size / (1024 * 1024)).toFixed(1)} MB`,
-      type: f.type
-    }));
-    setAttachedFiles(prev => [...prev, ...newItems]);
-    showToast(`Attached ${newItems.length} file(s) with SHA-256 integrity hash`, 'info');
+
+    files.forEach(f => {
+      const isImg = f.type && f.type.startsWith('image/');
+      if (isImg) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setAttachedFiles(prev => [
+            ...prev,
+            {
+              name: f.name,
+              size: `${(f.size / (1024 * 1024)).toFixed(1)} MB`,
+              type: f.type,
+              previewUrl: event.target.result
+            }
+          ]);
+        };
+        reader.readAsDataURL(f);
+      } else {
+        setAttachedFiles(prev => [
+          ...prev,
+          {
+            name: f.name,
+            size: `${(f.size / (1024 * 1024)).toFixed(1)} MB`,
+            type: f.type,
+            previewUrl: null
+          }
+        ]);
+      }
+    });
+
+    showToast(`Attached ${files.length} evidence file(s) with visual preview`, 'info');
   };
 
   const removeFile = (index) => {
@@ -277,61 +275,6 @@ export default function SubmitComplaint() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      
-      {/* Problem Statement 04 Alignment Banner */}
-      <div className="mb-6 p-3.5 rounded-2xl bg-[#0f172a]/90 border border-blue-500/30 flex flex-col md:flex-row md:items-center justify-between text-xs text-slate-300 gap-3 shadow-lg">
-        <div className="flex items-center space-x-2">
-          <span className="p-1.5 rounded-lg bg-blue-600/20 text-blue-400 font-bold">
-            <Zap className="w-4 h-4" />
-          </span>
-          <div>
-            <span className="font-bold text-white">Intelligent AI Classification &amp; Triage Active:</span>
-            <span className="text-slate-400 ml-1.5">
-              Type or test any of the 4 core problem domains below to watch real-time NLP categorisation, priority detection &amp; duplicate clustering.
-            </span>
-          </div>
-        </div>
-
-        {/* Quick Test Preset Buttons */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => loadPreset('sanitation')}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-300 text-[11px] font-semibold border border-slate-700 transition-colors"
-          >
-            💧 Sanitation
-          </button>
-          <button
-            type="button"
-            onClick={() => loadPreset('infrastructure')}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-red-300 text-[11px] font-semibold border border-slate-700 transition-colors"
-          >
-            ⚡ Infrastructure
-          </button>
-          <button
-            type="button"
-            onClick={() => loadPreset('academics')}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 text-[11px] font-semibold border border-slate-700 transition-colors"
-          >
-            📚 Academics
-          </button>
-          <button
-            type="button"
-            onClick={() => loadPreset('services')}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-semibold border border-slate-700 transition-colors"
-          >
-            🚌 Student Services
-          </button>
-          <button
-            type="button"
-            onClick={() => loadPreset('it')}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[11px] font-semibold border border-slate-700 transition-colors"
-          >
-            📶 IT Network
-          </button>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* 1. LEFT SIDEBAR */}
@@ -570,7 +513,11 @@ export default function SubmitComplaint() {
                       className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-xs"
                     >
                       <div className="flex items-center space-x-2.5 truncate">
-                        <FileCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        {file.previewUrl ? (
+                          <img src={file.previewUrl} alt={file.name} className="w-8 h-8 rounded-md object-cover border border-slate-700 flex-shrink-0" />
+                        ) : (
+                          <FileCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        )}
                         <div className="truncate">
                           <span className="text-slate-200 font-medium block truncate">
                             {file.name}

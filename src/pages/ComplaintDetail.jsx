@@ -31,6 +31,8 @@ export default function ComplaintDetail() {
     tickets,
     toggleUpvote,
     updateTicketStatus,
+    withdrawTicket,
+    submitTicketRating,
     addComment,
     currentUser,
     showToast
@@ -40,6 +42,11 @@ export default function ComplaintDetail() {
   const [subscribedSms, setSubscribedSms] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [activePhotoTitle, setActivePhotoTitle] = useState('');
+  const [activePhotoUrl, setActivePhotoUrl] = useState('');
+  const [userRating, setUserRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [ratingFeedback, setRatingFeedback] = useState('');
+  const [hasRated, setHasRated] = useState(false);
 
   const ticket = (tickets && tickets.find(t => t.id === selectedTicketId)) || (tickets && tickets[0]);
   const isTeacherOrAdmin = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
@@ -108,6 +115,7 @@ export default function ComplaintDetail() {
         isOpen={lightboxOpen}
         onClose={() => setLightboxOpen(false)}
         imageTitle={activePhotoTitle}
+        imageUrl={activePhotoUrl}
       />
 
       {/* Top Breadcrumb & Action Buttons */}
@@ -183,14 +191,21 @@ export default function ComplaintDetail() {
                 </span>
               </div>
 
-              {/* Admin/Teacher Quick Status Updater */}
-              {isTeacherOrAdmin && (
+              {/* Admin/Teacher Quick Status Updater or Student Self-Resolve */}
+              {isTeacherOrAdmin ? (
                 <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-purple-500/40">
                   <span className="text-[10px] uppercase font-bold text-purple-300">Teacher Action:</span>
                   <select
                     value={ticket.status}
-                    onChange={(e) => updateTicketStatus(ticket.id, e.target.value)}
-                    className="bg-transparent text-xs font-bold text-white focus:outline-none"
+                    onChange={(e) => {
+                      const newStatus = e.target.value;
+                      let note = '';
+                      if (newStatus === 'Resolved') {
+                        note = prompt('Enter resolution note to email the student (optional):', 'The facility issue has been inspected and resolved by campus engineering.') || '';
+                      }
+                      updateTicketStatus(ticket.id, newStatus, note);
+                    }}
+                    className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
                   >
                     <option value="Submitted">Submitted</option>
                     <option value="Under Review">Under Review</option>
@@ -198,6 +213,20 @@ export default function ComplaintDetail() {
                     <option value="Resolved">Resolved</option>
                   </select>
                 </div>
+              ) : (
+                ticket.status !== 'Resolved' && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Mark this complaint as resolved / withdrawn?')) {
+                        withdrawTicket(ticket.id, 'Resolved by student submitter');
+                      }
+                    }}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all shadow-sm"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Withdraw / Mark Solved</span>
+                  </button>
+                )
               )}
             </div>
 
@@ -298,23 +327,32 @@ export default function ComplaintDetail() {
                     key={i}
                     onClick={() => {
                       setActivePhotoTitle(file.name);
+                      setActivePhotoUrl(file.previewUrl || '');
                       setLightboxOpen(true);
                     }}
-                    className="p-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-blue-500/60 cursor-pointer flex items-center justify-between group transition-colors"
+                    className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/60 cursor-pointer flex items-center justify-between group transition-colors overflow-hidden"
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-9 h-9 rounded bg-blue-950/50 border border-blue-800/50 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
-                        <ZoomIn className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold text-slate-200 block group-hover:text-blue-300">
+                    <div className="flex items-center space-x-3 truncate">
+                      {file.previewUrl ? (
+                        <img
+                          src={file.previewUrl}
+                          alt={file.name}
+                          className="w-11 h-11 rounded-lg object-cover border border-slate-700 flex-shrink-0 group-hover:scale-105 transition-transform"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-blue-950/50 border border-blue-800/50 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform flex-shrink-0">
+                          <ZoomIn className="w-4 h-4" />
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <span className="text-xs font-bold text-slate-200 block group-hover:text-blue-300 truncate">
                           {file.name}
                         </span>
                         <span className="text-[10px] text-slate-500">{file.size}</span>
                       </div>
                     </div>
-                    <span className="text-[11px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                      Click to inspect ➔
+                    <span className="text-[11px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2">
+                      Inspect ➔
                     </span>
                   </div>
                 ))}
@@ -325,6 +363,95 @@ export default function ComplaintDetail() {
                 <span>Cryptographically timestamped on SHA-256 ledger • Verified SSO Incident Authenticated</span>
               </div>
             </div>
+
+            {/* Post-Resolution Satisfaction Rating (Closed-Loop Redressal) */}
+            {ticket.status === 'Resolved' && (
+              <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#111726] to-slate-900 border border-emerald-500/40 shadow-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    <span className="text-sm font-bold text-white">
+                      Resolution Quality & Student Satisfaction
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded uppercase font-bold">
+                    CLOSED LOOP AUDIT
+                  </span>
+                </div>
+
+                {ticket.resolutionNote && (
+                  <div className="mb-4 p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Official Resolution Remark:</span>
+                    <p className="italic text-emerald-300 font-medium">"{ticket.resolutionNote}"</p>
+                  </div>
+                )}
+
+                {ticket.rating || hasRated ? (
+                  <div className="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-emerald-300 font-bold block">
+                        Student Satisfaction Recorded: {ticket.rating || userRating} / 5 Stars
+                      </span>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {ticket.ratingComment || ratingFeedback || 'Thank you for rating campus facilities!'}
+                      </p>
+                    </div>
+                    <div className="flex text-amber-400 text-lg">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <span key={i} className={i < (ticket.rating || userRating) ? 'text-amber-400' : 'text-slate-600'}>★</span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-xs text-slate-300 mb-2">
+                      Please rate the resolution speed and quality provided by campus administration:
+                    </p>
+                    <div className="flex items-center space-x-2 mb-3">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(0)}
+                          onClick={() => setUserRating(star)}
+                          className="text-2xl transition-transform hover:scale-125 focus:outline-none"
+                        >
+                          <span className={(hoverRating || userRating) >= star ? 'text-amber-400' : 'text-slate-600'}>
+                            ★
+                          </span>
+                        </button>
+                      ))}
+                      <span className="text-xs text-slate-400 ml-2 font-mono">
+                        {userRating ? `${userRating} of 5 Stars` : 'Tap stars to rate'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={ratingFeedback}
+                        onChange={(e) => setRatingFeedback(e.target.value)}
+                        placeholder="Optional feedback comment (e.g., Fixed promptly, good work)"
+                        className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        disabled={!userRating}
+                        onClick={() => {
+                          if (!userRating) return;
+                          submitTicketRating(ticket.id, userRating, ratingFeedback);
+                          setHasRated(true);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold text-xs transition-all shadow-glow-sm"
+                      >
+                        Submit Rating
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Upvote & SMS Actions */}
             <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-800">

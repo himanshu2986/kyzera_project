@@ -12,8 +12,13 @@ import {
   isFirebaseReady,
   subscribeToTicketsRealtime,
   addTicketToFirebase,
-  updateTicketStatusInFirebase
+  updateTicketStatusInFirebase,
+  updateTicketUpvotesInFirebase,
+  updateTicketRatingInFirebase,
+  addCommentToFirebase,
+  subscribeToPresenceRealtime
 } from '../services/firebase';
+import { sendStatusEmail } from '../services/emailService';
 
 const CampusContext = createContext();
 
@@ -160,10 +165,20 @@ export function CampusProvider({ children }) {
     };
     window.addEventListener('storage', onStorage);
 
+    // Multi-device presence synchronization via Cloud Firestore
+    let unsubFirebasePresence = () => {};
+    if (isFirebaseReady() && currentUser) {
+      unsubFirebasePresence = subscribeToPresenceRealtime(tabId, isStudent ? 'Student' : 'Teacher', ({ students, teachers }) => {
+        if (students > 0) setActiveStudentsCount(students);
+        if (teachers > 0) setActiveTeachersCount(teachers);
+      });
+    }
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('storage', onStorage);
       localStorage.removeItem(sessionKey);
+      unsubFirebasePresence();
     };
   }, [currentUser]);
 
@@ -262,24 +277,41 @@ export function CampusProvider({ children }) {
     navigateTo('login');
   };
 
-  // Upvote Action
+  // Upvote Action with Community Auto-Escalation
   const toggleUpvote = (ticketId) => {
     setTickets(prev =>
       prev.map(ticket => {
         if (ticket.id === ticketId) {
           const isUpvoted = ticket.hasUpvoted;
           const delta = isUpvoted ? -1 : 1;
+          const newUpvotes = Math.max(0, ticket.upvotes + delta);
+          let newPriority = ticket.priority;
+
+          // Auto-escalate based on community upvote momentum
+          if (!isUpvoted) {
+            if (newUpvotes >= 10 && ticket.priority !== 'Urgent') {
+              newPriority = 'Urgent';
+              showToast(`⚡ High Community Momentum! Ticket #${ticketId} reached ${newUpvotes} upvotes and auto-escalated to URGENT priority.`, 'warning');
+            } else if (newUpvotes >= 5 && (ticket.priority === 'Medium' || ticket.priority === 'Low')) {
+              newPriority = 'High';
+              showToast(`⚡ Ticket #${ticketId} reached ${newUpvotes} upvotes and auto-escalated to HIGH priority.`, 'info');
+            } else {
+              showToast(`You upvoted ticket #${ticketId}. Community momentum increased!`, 'success');
+            }
+          } else {
+            showToast(`Removed upvote from #${ticketId}.`, 'info');
+          }
+
+          if (isFirebaseReady()) {
+            updateTicketUpvotesInFirebase(ticketId, newUpvotes, newPriority).catch(() => {});
+          }
+
           const updated = {
             ...ticket,
-            upvotes: ticket.upvotes + delta,
+            upvotes: newUpvotes,
+            priority: newPriority,
             hasUpvoted: !isUpvoted
           };
-          showToast(
-            !isUpvoted
-              ? `You upvoted ticket #${ticketId}. Community momentum increased!`
-              : `Removed upvote from #${ticketId}.`,
-            !isUpvoted ? 'success' : 'info'
-          );
           return updated;
         }
         return ticket;
@@ -387,16 +419,18 @@ export function CampusProvider({ children }) {
     return newTicket;
   };
 
-  // Admin: Update Status
-  const updateTicketStatus = (ticketId, newStatus) => {
+  // Admin: Update Status & Dispatch Email to Student
+  const updateTicketStatus = (ticketId, newStatus, note = '') => {
+    let targetTicket = null;
     setTickets(prev =>
       prev.map(t => {
         if (t.id === ticketId) {
-          const updatedRoadmap = t.roadmap.map(step => {
+          targetTicket = t;
+          const updatedRoadmap = (t.roadmap || []).map(step => {
             if (newStatus === 'Resolved') {
               return { ...step, status: 'completed' };
             }
-            if (newStatus === 'In Progress' && step.title.includes('In Progress')) {
+            if (newStatus === 'In Progress' && step.title && step.title.includes('In Progress')) {
               return { ...step, status: 'active' };
             }
             return step;
@@ -407,6 +441,7 @@ export function CampusProvider({ children }) {
             status: newStatus,
             updatedAt: new Date().toISOString(),
             roadmap: updatedRoadmap,
+            resolutionNote: note || t.resolutionNote,
             slaRemainingHours: newStatus === 'Resolved' ? 0 : t.slaRemainingHours
           };
         }
@@ -420,7 +455,69 @@ export function CampusProvider({ children }) {
       });
     }
 
+    // Automatically send real email notification to student submitter
+    if (targetTicket && targetTicket.studentEmail) {
+      sendStatusEmail({
+        toEmail: targetTicket.studentEmail,
+        studentName: targetTicket.studentRealName || 'Student',
+        ticketId,
+        ticketTitle: targetTicket.title,
+        oldStatus: targetTicket.status,
+        newStatus,
+        updatedBy: currentUser?.name || 'Prof. David Tan (Teacher / Admin)',
+        resolutionNote: note
+      }).then(res => {
+        if (res && res.success) {
+          showToast(`📧 Status update email dispatched to ${targetTicket.studentEmail}!`, 'info');
+        }
+      }).catch(err => {
+        console.warn('Failed to send status update email:', err);
+      });
+    }
+
     showToast(`Ticket #${ticketId} status updated to: ${newStatus}`, 'success');
+  };
+
+  // Student Withdraw / Self-Resolve Ticket
+  const withdrawTicket = (ticketId, reason = 'Issue resolved by submitter') => {
+    setTickets(prev =>
+      prev.map(t => {
+        if (t.id === ticketId) {
+          return {
+            ...t,
+            status: 'Resolved',
+            updatedAt: new Date().toISOString(),
+            resolutionNote: `Self-Resolved / Withdrawn by student: ${reason}`,
+            slaRemainingHours: 0
+          };
+        }
+        return t;
+      })
+    );
+    showToast(`Ticket #${ticketId} successfully resolved by student.`, 'success');
+  };
+
+  // Student Post-Resolution Feedback & Star Rating
+  const submitTicketRating = (ticketId, rating, comment = '') => {
+    setTickets(prev =>
+      prev.map(t => {
+        if (t.id === ticketId) {
+          return {
+            ...t,
+            rating,
+            ratingComment: comment,
+            ratedAt: new Date().toISOString()
+          };
+        }
+        return t;
+      })
+    );
+
+    if (isFirebaseReady()) {
+      updateTicketRatingInFirebase(ticketId, rating, comment).catch(() => {});
+    }
+
+    showToast(`⭐ Recorded your ${rating}-star resolution rating! Thank you.`, 'success');
   };
 
   // Add Comment to Ticket
@@ -450,6 +547,11 @@ export function CampusProvider({ children }) {
         return t;
       })
     );
+
+    if (isFirebaseReady()) {
+      addCommentToFirebase(ticketId, comment).catch(() => {});
+    }
+
     showToast('Comment posted successfully.', 'info');
   };
 
@@ -536,6 +638,8 @@ export function CampusProvider({ children }) {
         toggleUpvote,
         addTicket,
         updateTicketStatus,
+        withdrawTicket,
+        submitTicketRating,
         addComment,
         markClusterResolved,
         requestIdentityReveal,

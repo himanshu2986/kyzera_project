@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, ZoomIn, ShieldCheck, Download } from 'lucide-react';
 
-export default function LightboxModal({ isOpen, onClose, imageTitle }) {
+export default function LightboxModal({ isOpen, onClose, imageTitle, imageUrl }) {
   if (!isOpen) return null;
 
   return (
@@ -25,39 +25,48 @@ export default function LightboxModal({ isOpen, onClose, imageTitle }) {
           </button>
         </div>
 
-        {/* Realistic Mock Visual for Evidence (Pressure gauge / electrical switch) */}
-        <div className="my-4 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 p-6 flex flex-col items-center justify-center min-h-[280px] relative">
-          <div className="w-44 h-44 rounded-full border-4 border-slate-700 bg-slate-900 flex flex-col items-center justify-center shadow-inner relative">
-            <div className="absolute inset-2 rounded-full border border-dashed border-red-500/50 flex items-center justify-center">
-              <div className="text-center">
-                <span className="text-3xl font-black text-red-500 font-mono">0.0</span>
-                <span className="block text-[10px] uppercase font-bold text-slate-400">PSI / BAR</span>
+        {/* Evidence Visual: Real photo if available, or telemetry diagram */}
+        <div className="my-4 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 p-3 flex flex-col items-center justify-center min-h-[300px] relative">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={imageTitle}
+              className="max-h-[460px] w-auto max-w-full rounded-lg object-contain shadow-2xl"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center p-6 text-center">
+              <div className="w-44 h-44 rounded-full border-4 border-slate-700 bg-slate-900 flex flex-col items-center justify-center shadow-inner relative mb-4">
+                <div className="absolute inset-2 rounded-full border border-dashed border-red-500/50 flex items-center justify-center">
+                  <div className="text-center">
+                    <span className="text-3xl font-black text-red-500 font-mono">0.0</span>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">PSI / BAR</span>
+                  </div>
+                </div>
+                <div className="w-1 h-16 bg-red-500 origin-bottom transform -rotate-45 rounded-full absolute bottom-1/2"></div>
+                <div className="w-4 h-4 bg-white rounded-full z-10 border-2 border-red-600"></div>
               </div>
+              <p className="text-xs font-semibold text-red-400">
+                Telemetry Alert: Zero Hydraulic Pressure Detected
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1 max-w-md">
+                Hostel Block C Mechanical Room • Sensor ID #PS-884
+              </p>
             </div>
-            {/* Needle indicator pointing to 0 */}
-            <div className="w-1 h-16 bg-red-500 origin-bottom transform -rotate-45 rounded-full absolute bottom-1/2"></div>
-            <div className="w-4 h-4 bg-white rounded-full z-10 border-2 border-red-600"></div>
-          </div>
-
-          <div className="mt-4 text-center">
-            <p className="text-xs font-semibold text-red-400">
-              Telemetry Alert: Zero Hydraulic Pressure Detected
-            </p>
-            <p className="text-[11px] text-slate-400 mt-1 max-w-md">
-              Overhead Booster Transducer #B-3 • Hostel Block C Mechanical Room • Sensor ID #PS-884
-            </p>
-          </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-          <span>Metadata: 4032x3024 • iPhone 15 Pro • Geotag: 28.544°N 77.192°E</span>
-          <button
-            onClick={() => alert('Evidence packet downloaded')}
-            className="flex items-center space-x-1.5 text-blue-400 hover:text-blue-300 font-medium"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Download Certified Raw</span>
-          </button>
+          <span>Metadata: Verified Visual Evidence • Kyzera SHA-256 Integrity Seal</span>
+          {imageUrl && (
+            <a
+              href={imageUrl}
+              download={imageTitle || 'kyzera-evidence.png'}
+              className="flex items-center space-x-1.5 text-blue-400 hover:text-blue-300 font-medium"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Evidence File</span>
+            </a>
+          )}
         </div>
       </div>
     </div>
