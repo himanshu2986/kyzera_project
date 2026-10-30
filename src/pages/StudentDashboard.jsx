@@ -27,7 +27,9 @@ export default function StudentDashboard() {
     tickets,
     toggleUpvote,
     currentUser,
-    showToast
+    showToast,
+    activeStudentsCount,
+    activeTeachersCount
   } = useCampus();
 
   const [activeTab, setActiveTab] = useState('All');
@@ -103,9 +105,18 @@ export default function StudentDashboard() {
       {/* Top Banner / Student Anonymous Identity */}
       <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
         <div>
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-950/70 border border-blue-800/60 text-blue-400 text-xs font-mono font-semibold mb-2">
-            <Lock className="w-3 h-3" />
-            <span>STUDENT ANONYMOUS ID: #CP-8841 • Active Token 7820-A</span>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-950/70 border border-blue-800/60 text-blue-400 text-xs font-mono font-semibold">
+              <Lock className="w-3 h-3" />
+              <span>STUDENT ANONYMOUS ID: {currentUser?.anonymousId || '#CP-8841'} • Active Token {currentUser?.token || '7820-A'}</span>
+            </div>
+            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-700/80 text-[11px] font-mono text-slate-300">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Live: {activeStudentsCount} Student{activeStudentsCount === 1 ? ' (You)' : 's'} &amp; {activeTeachersCount} Teacher{activeTeachersCount === 1 ? '' : 's'} Active</span>
+            </div>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
             My Grievance &amp; Suggestion Dashboard
@@ -147,7 +158,7 @@ export default function StudentDashboard() {
           </div>
           <div className="text-3xl font-extrabold text-white font-mono">{tickets.length}</div>
           <p className="text-[11px] text-emerald-400 mt-2 font-medium">
-            +2 this semester
+            {tickets.length === 1 ? '1 active grievance record' : `${tickets.length} active records`}
           </p>
         </div>
 
@@ -286,8 +297,15 @@ export default function StudentDashboard() {
         {filteredTickets.length === 0 ? (
           <div className="p-12 text-center rounded-2xl bg-[#101726] border border-slate-800 text-slate-400">
             <FileText className="w-10 h-10 mx-auto text-slate-600 mb-3" />
-            <h3 className="text-sm font-bold text-slate-300">No complaints matching your filter</h3>
-            <p className="text-xs text-slate-500 mt-1">Try clearing some filter criteria or search queries.</p>
+            <h3 className="text-sm font-bold text-slate-200">No complaints or suggestions filed yet</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Click below to submit your first campus grievance or suggestion.</p>
+            <button
+              onClick={() => navigateTo('submit')}
+              className="mt-4 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs inline-flex items-center space-x-1.5 shadow-glow-sm transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Submit Complaint / Suggestion</span>
+            </button>
           </div>
         ) : (
           filteredTickets.map((ticket) => (
@@ -345,6 +363,20 @@ export default function StudentDashboard() {
                   <p className="text-xs text-slate-400 mt-2 line-clamp-2 leading-relaxed">
                     {ticket.description}
                   </p>
+
+                  {/* Submitter Privacy Badge (Students NEVER see other students' personal details) */}
+                  <div className="mt-3 inline-flex items-center space-x-2 text-[11px] px-2.5 py-1 rounded-md bg-slate-900/90 border border-slate-800">
+                    <Lock className="w-3 h-3 text-blue-400" />
+                    {ticket.studentRoll === currentUser?.roll ? (
+                      <span className="text-emerald-300 font-medium">
+                        Submitted by You (<span className="text-white font-semibold">{currentUser?.name}</span> • Roll: {currentUser?.roll}) — Masked from peers
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">
+                        Submitter: <strong className="text-amber-300 font-mono">Anonymous Student #{ticket.studentId}</strong> <span className="text-slate-500 font-normal">(Personal identity hidden for peer privacy)</span>
+                      </span>
+                    )}
+                  </div>
 
                   {/* Metadata: Subordinates & Assigned Dept */}
                   <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-400">

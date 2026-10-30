@@ -2,45 +2,67 @@ import React, { useState } from 'react';
 import { useCampus } from '../context/CampusContext';
 import {
   ShieldCheck,
-  Radio,
   Bell,
   ChevronDown,
   User,
   LogOut,
   Sparkles,
-  ExternalLink,
   Lock,
   Layers,
   AlertTriangle,
   CheckCircle2,
   FileText,
-  X
+  X,
+  LogIn,
+  Flame,
+  Database,
+  Mail
 } from 'lucide-react';
-import { USERS } from '../data/initialData';
+import FirebaseModal from './FirebaseModal';
+import GmailOtpModal from './GmailOtpModal';
 
 export default function Navbar() {
   const {
+    isAuthenticated,
     currentPage,
     navigateTo,
     currentUser,
-    switchRole,
+    logout,
     notifications,
-    showToast
+    showToast,
+    activeStudentsCount,
+    activeTeachersCount,
+    isFirebaseConnected,
+    setIsFirebaseConnected
   } = useCampus();
 
-  const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showRequirementsModal, setShowRequirementsModal] = useState(false);
+  const [showFirebaseModal, setShowFirebaseModal] = useState(false);
+  const [showGmailModal, setShowGmailModal] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const navLinks = [
-    { id: 'home', label: 'Landing/Home' },
-    { id: 'submit', label: 'Submit Complaint' },
-    { id: 'dashboard', label: 'My Dashboard' },
-    { id: 'admin', label: 'Admin Command Center' },
-    { id: 'privacy-audit', label: 'Privacy Audit' },
-  ];
+  const isTeacherOrAdmin = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
+
+  // Role-based Nav Links
+  const navLinks = isAuthenticated
+    ? isTeacherOrAdmin
+      ? [
+          { id: 'admin', label: 'Admin Command Center' },
+          { id: 'privacy-audit', label: 'Privacy Audit' },
+          { id: 'home', label: 'Public Portal' },
+        ]
+      : [
+          { id: 'dashboard', label: 'My Dashboard' },
+          { id: 'submit', label: 'Submit Complaint' },
+          { id: 'home', label: 'Public Feed' },
+        ]
+    : [
+        { id: 'login', label: 'Sign In / Register' },
+        { id: 'home', label: 'About Kyzera' }
+      ];
 
   const requirementsList = [
     { num: 1, title: 'Verified Access', desc: 'College email registration, login & prototype OTP verification.', page: 'login' },
@@ -50,7 +72,7 @@ export default function Navbar() {
     { num: 5, title: 'Priority Detection', desc: 'Rule-based and text classification detecting urgent safety, infrastructure & living hazards.', page: 'submit' },
     { num: 6, title: 'Admin Dashboard', desc: 'Submission trends, donut breakdown, recurring clusters, and departmental SLA performance.', page: 'admin' },
     { num: 7, title: 'Status Tracking', desc: 'Track & transition through Submitted, Under Review, In Progress, and Resolved.', page: 'admin' },
-    { num: 8, title: 'Privacy and Accountability', desc: 'Hidden public identities with immutable audit logs and dual-faculty authorization reveal.', page: 'privacy-audit' }
+    { num: 8, title: 'Privacy and Accountability', desc: 'Students see anonymous tokens; Authorized Teachers/Admins see student names & details.', page: 'privacy-audit' }
   ];
 
   return (
@@ -60,7 +82,7 @@ export default function Navbar() {
           
           {/* Brand / Logo */}
           <div 
-            onClick={() => navigateTo('home')}
+            onClick={() => navigateTo(isAuthenticated ? (isTeacherOrAdmin ? 'admin' : 'dashboard') : 'login')}
             className="flex items-center space-x-3 cursor-pointer group select-none"
           >
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 p-0.5 shadow-glow-sm group-hover:scale-105 transition-transform duration-200">
@@ -109,182 +131,72 @@ export default function Navbar() {
 
           {/* Right Status & Controls */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            
-            {/* Problem Statement 04 Checklist Pill (For Judges) */}
-            <button
-              onClick={() => setShowRequirementsModal(true)}
-              className="flex items-center space-x-1.5 bg-gradient-to-r from-blue-950/80 to-indigo-950/80 border border-blue-500/50 hover:border-blue-400 rounded-full px-2.5 sm:px-3 py-1 text-[11px] font-bold text-blue-300 shadow-glow-sm transition-all"
-              title="View Hackathon Problem Statement 04 Compliance Checklist"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Problem 04:</span>
-              <span className="text-white">8/8 Solved</span>
-            </button>
 
-            {/* Live System Indicator Badge */}
-            <div className="hidden xl:flex items-center space-x-2 bg-slate-900/90 border border-slate-700/60 rounded-full px-3 py-1 text-[11px] font-semibold text-slate-300">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="tracking-wide">AI ACTIVE</span>
-            </div>
+            {/* Logged in User Profile & Log Out Menu */}
+            {isAuthenticated ? (
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="flex items-center space-x-2 pl-2 pr-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-700/70 hover:border-blue-500 transition-colors text-xs font-medium text-slate-200"
+                >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-sm ${
+                    isTeacherOrAdmin
+                      ? 'bg-gradient-to-tr from-purple-500 to-indigo-600'
+                      : 'bg-gradient-to-tr from-blue-500 to-cyan-500'
+                  }`}>
+                    {isTeacherOrAdmin ? 'FA' : 'ST'}
+                  </div>
+                  <div className="text-left hidden sm:block">
+                    <span className="block text-xs font-semibold text-slate-200 leading-tight">
+                      {currentUser?.name}
+                    </span>
+                    <span className={`block text-[10px] font-mono leading-none ${
+                      isTeacherOrAdmin ? 'text-purple-400' : 'text-blue-400'
+                    }`}>
+                      {currentUser?.role}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                </button>
 
-            {/* Notifications Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 rounded-lg bg-slate-900/80 border border-slate-700/60 text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
-                title="Notifications"
-              >
-                <Bell className="w-4 h-4" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center animate-pulse">
-                    {unreadCount}
-                  </span>
+                {showProfileMenu && (
+                  <div className="absolute right-0 mt-2 w-64 bg-[#101726] border border-slate-700 rounded-xl shadow-2xl z-50 p-3">
+                    <div className="px-2 py-2 border-b border-slate-700/60 mb-2">
+                      <p className="text-xs font-bold text-white">{currentUser?.name}</p>
+                      <p className="text-[11px] text-slate-400 font-mono mt-0.5">{currentUser?.email}</p>
+                      <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300">
+                        {currentUser?.role}
+                      </div>
+                      {!isTeacherOrAdmin && (
+                        <p className="text-[10px] text-amber-300 font-mono mt-1.5">
+                          Public Mask: {currentUser?.anonymousId}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        logout();
+                      }}
+                      className="w-full text-left p-2 rounded-lg text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center space-x-2 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Log Out</span>
+                    </button>
+                  </div>
                 )}
-              </button>
-
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-[#101726] border border-slate-700 rounded-xl shadow-2xl z-50 p-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-700/60 mb-2">
-                    <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                      Recent Alerts &amp; Updates
-                    </span>
-                    <span className="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                      Real-time
-                    </span>
-                  </div>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {notifications.map(n => (
-                      <div
-                        key={n.id}
-                        onClick={() => {
-                          setShowNotifications(false);
-                          if (n.ticketId) navigateTo('ticket-detail', n.ticketId);
-                        }}
-                        className="p-2.5 rounded-lg bg-slate-800/40 hover:bg-slate-800 border border-slate-700/40 cursor-pointer transition-colors"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-slate-100">{n.title}</span>
-                          <span className="text-[10px] text-slate-400">{n.time}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-1 leading-snug">{n.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Persona Switcher Dropdown */}
-            <div className="relative">
+              </div>
+            ) : (
+              /* When not logged in: simple Sign In button */
               <button
-                onClick={() => setShowRoleMenu(!showRoleMenu)}
-                className="flex items-center space-x-2 pl-2 pr-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-700/70 hover:border-blue-500 transition-colors text-xs font-medium text-slate-200"
+                onClick={() => navigateTo('login')}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-sm transition-all"
               >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
-                  {currentUser.role === 'Student' ? 'ST' : currentUser.role === 'Chief Admin' ? 'AD' : 'ET'}
-                </div>
-                <div className="text-left hidden lg:block">
-                  <span className="block text-xs font-semibold text-slate-200 leading-tight">
-                    {currentUser.role === 'Student' ? 'Anonymous Student' : currentUser.name}
-                  </span>
-                  <span className="block text-[10px] text-blue-400 leading-none">
-                    {currentUser.role}
-                  </span>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
               </button>
-
-              {showRoleMenu && (
-                <div className="absolute right-0 mt-2 w-72 bg-[#101726] border border-slate-700 rounded-xl shadow-2xl z-50 p-3">
-                  <div className="px-2 py-1.5 border-b border-slate-700/60 mb-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Interactive Stakeholder Switcher
-                    </p>
-                    <p className="text-[11px] text-slate-300">
-                      Switch between all 3 stakeholder roles:
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <button
-                      onClick={() => {
-                        switchRole('student');
-                        setShowRoleMenu(false);
-                      }}
-                      className={`w-full text-left p-2 rounded-lg flex items-center space-x-2.5 transition-colors ${
-                        currentUser.role === 'Student'
-                          ? 'bg-blue-600/20 border border-blue-500/50 text-white'
-                          : 'hover:bg-slate-800 text-slate-300'
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs">
-                        ST
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold">Anonymous Student</p>
-                        <p className="text-[10px] text-slate-400">ID: #CP-8841 • Submits &amp; Upvotes</p>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        switchRole('admin');
-                        setShowRoleMenu(false);
-                      }}
-                      className={`w-full text-left p-2 rounded-lg flex items-center space-x-2.5 transition-colors ${
-                        currentUser.role === 'Chief Admin'
-                          ? 'bg-amber-600/20 border border-amber-500/50 text-white'
-                          : 'hover:bg-slate-800 text-slate-300'
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs">
-                        AD
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold">Eng. David Tan (Chief Admin)</p>
-                        <p className="text-[10px] text-slate-400">Facilities Lead • Triage &amp; Status</p>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        switchRole('ethics');
-                        setShowRoleMenu(false);
-                      }}
-                      className={`w-full text-left p-2 rounded-lg flex items-center space-x-2.5 transition-colors ${
-                        currentUser.role === 'Ethics Officer'
-                          ? 'bg-purple-600/20 border border-purple-500/50 text-white'
-                          : 'hover:bg-slate-800 text-slate-300'
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-xs">
-                        ET
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold">Dr. Robert Chen (Chief Dean)</p>
-                        <p className="text-[10px] text-slate-400">Ethics Board • Signs De-anonymization</p>
-                      </div>
-                    </button>
-                  </div>
-
-                  <div className="mt-3 pt-2 border-t border-slate-700/60 flex items-center justify-between">
-                    <button
-                      onClick={() => {
-                        setShowRoleMenu(false);
-                        navigateTo('login');
-                      }}
-                      className="text-[11px] text-blue-400 hover:text-blue-300 flex items-center space-x-1"
-                    >
-                      <Lock className="w-3 h-3" />
-                      <span>Open Login / SSO Page</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
 
           </div>
         </div>
@@ -368,6 +280,18 @@ export default function Navbar() {
           </div>
         </div>
       )}
+      {/* Firebase Cloud Database Modal */}
+      <FirebaseModal
+        isOpen={showFirebaseModal}
+        onClose={() => setShowFirebaseModal(false)}
+        onConfigUpdated={(status) => setIsFirebaseConnected(status)}
+      />
+
+      {/* Gmail OTP Configuration Modal */}
+      <GmailOtpModal
+        isOpen={showGmailModal}
+        onClose={() => setShowGmailModal(false)}
+      />
     </>
   );
 }

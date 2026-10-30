@@ -5,33 +5,66 @@ import {
   INITIAL_AUDIT_LOGS,
   INITIAL_NOTIFICATIONS,
   INITIAL_LIVE_STREAM,
-  USERS
+  PRESET_USERS
 } from '../data/initialData';
 import { sha256, generateAnonymousId } from '../utils/crypto';
+import {
+  isFirebaseReady,
+  subscribeToTicketsRealtime,
+  addTicketToFirebase,
+  updateTicketStatusInFirebase
+} from '../services/firebase';
 
 const CampusContext = createContext();
 
 export function CampusProvider({ children }) {
-  // Navigation
-  const [currentPage, setCurrentPage] = useState('home');
-  const [selectedTicketId, setSelectedTicketId] = useState('CP-4029');
-  const [selectedClusterId, setSelectedClusterId] = useState('CL-882');
-
-  // Auth & Roles
-  const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('kyzera_user');
-    return saved ? JSON.parse(saved) : USERS.student;
+  // Authentication & Initial Page (Persists logged-in session across page reloads)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('kyzera_auth') === 'true';
   });
 
-  // State with LocalStorage fallbacks
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('kyzera_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [currentPage, setCurrentPage] = useState(() => {
+    const auth = localStorage.getItem('kyzera_auth') === 'true';
+    if (!auth) return 'login';
+    const savedPage = localStorage.getItem('kyzera_current_page');
+    const userStr = localStorage.getItem('kyzera_user');
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        if ((savedPage === 'admin' || savedPage === 'privacy-audit') && u.role === 'Student') {
+          return 'dashboard';
+        }
+        if (savedPage) return savedPage;
+        return u.role === 'Student' ? 'dashboard' : 'admin';
+      } catch {}
+    }
+    return savedPage || 'login';
+  });
+
+  const [selectedTicketId, setSelectedTicketId] = useState(() => {
+    return localStorage.getItem('kyzera_ticket_id') || null;
+  });
+
+  const [selectedClusterId, setSelectedClusterId] = useState(() => {
+    return localStorage.getItem('kyzera_cluster_id') || null;
+  });
+
+  // State with LocalStorage (Starts completely empty until user adds complaints)
   const [tickets, setTickets] = useState(() => {
-    const saved = localStorage.getItem('kyzera_tickets');
-    return saved ? JSON.parse(saved) : INITIAL_TICKETS;
+    localStorage.removeItem('kyzera_tickets');
+    const saved = localStorage.getItem('kyzera_user_tickets');
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [clusters, setClusters] = useState(() => {
-    const saved = localStorage.getItem('kyzera_clusters');
-    return saved ? JSON.parse(saved) : INITIAL_CLUSTERS;
+    localStorage.removeItem('kyzera_clusters');
+    const saved = localStorage.getItem('kyzera_user_clusters');
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [auditLogs, setAuditLogs] = useState(() => {
@@ -43,14 +76,107 @@ export function CampusProvider({ children }) {
   const [liveStream, setLiveStream] = useState(INITIAL_LIVE_STREAM);
   const [emergencyAlert, setEmergencyAlert] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState(() => isFirebaseReady());
 
-  // Save to localStorage on change
+  // Real-time Firestore Cloud Synchronization
   useEffect(() => {
-    localStorage.setItem('kyzera_tickets', JSON.stringify(tickets));
+    if (isFirebaseReady()) {
+      setIsFirebaseConnected(true);
+      const unsubscribe = subscribeToTicketsRealtime(
+        (firestoreTickets) => {
+          if (firestoreTickets && firestoreTickets.length > 0) {
+            setTickets(firestoreTickets);
+          }
+        },
+        (err) => {
+          console.warn('Real-time Firestore listener notice:', err);
+        }
+      );
+      return () => unsubscribe();
+    } else {
+      setIsFirebaseConnected(false);
+    }
+  }, [isFirebaseConnected]);
+
+  // Real-time Active Counts (Accurately tracks genuine active user sessions)
+  const [activeStudentsCount, setActiveStudentsCount] = useState(() => {
+    return (currentUser && currentUser.role === 'Student') ? 1 : 0;
+  });
+  const [activeTeachersCount, setActiveTeachersCount] = useState(() => {
+    return (currentUser && (currentUser.role?.includes('Teacher') || currentUser.role?.includes('Admin'))) ? 1 : 0;
+  });
+
+  useEffect(() => {
+    const isStudent = currentUser && currentUser.role === 'Student';
+    const isTeacher = currentUser && (currentUser.role?.includes('Teacher') || currentUser.role?.includes('Admin'));
+
+    // Unique ID for this browser tab session
+    const tabId = Math.random().toString(36).substring(2, 9);
+    const sessionKey = `kyzera_presence_${tabId}`;
+
+    const updatePresence = () => {
+      const now = Date.now();
+      if (currentUser) {
+        localStorage.setItem(sessionKey, JSON.stringify({
+          role: isStudent ? 'Student' : 'Teacher',
+          timestamp: now
+        }));
+      } else {
+        localStorage.removeItem(sessionKey);
+      }
+
+      // Scan all active presence keys in localStorage (clean up any older than 6s)
+      let students = 0;
+      let teachers = 0;
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('kyzera_presence_')) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key));
+            if (now - data.timestamp < 6000) {
+              if (data.role === 'Student') students++;
+              if (data.role === 'Teacher') teachers++;
+            } else {
+              localStorage.removeItem(key);
+            }
+          } catch {}
+        }
+      }
+
+      // Fallback: If current user is logged in on this tab, guarantee at least 1
+      if (isStudent && students === 0) students = 1;
+      if (isTeacher && teachers === 0) teachers = 1;
+
+      setActiveStudentsCount(students);
+      setActiveTeachersCount(teachers);
+    };
+
+    updatePresence();
+    const interval = setInterval(updatePresence, 2000);
+
+    const onStorage = () => {
+      updatePresence();
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', onStorage);
+      localStorage.removeItem(sessionKey);
+    };
+  }, [currentUser]);
+
+  const resolvedCount = tickets.filter(t => t.status === 'Resolved').length;
+  const resolutionRate = tickets.length > 0 ? ((resolvedCount / tickets.length) * 100).toFixed(1) : '94.8';
+
+  // Persistence
+  useEffect(() => {
+    localStorage.setItem('kyzera_user_tickets', JSON.stringify(tickets));
   }, [tickets]);
 
   useEffect(() => {
-    localStorage.setItem('kyzera_clusters', JSON.stringify(clusters));
+    localStorage.setItem('kyzera_user_clusters', JSON.stringify(clusters));
   }, [clusters]);
 
   useEffect(() => {
@@ -58,7 +184,10 @@ export function CampusProvider({ children }) {
   }, [auditLogs]);
 
   useEffect(() => {
-    localStorage.setItem('kyzera_user', JSON.stringify(currentUser));
+    if (currentUser) {
+      localStorage.setItem('kyzera_user', JSON.stringify(currentUser));
+      localStorage.setItem('kyzera_auth', 'true');
+    }
   }, [currentUser]);
 
   // Toast Helper
@@ -76,21 +205,61 @@ export function CampusProvider({ children }) {
 
   // Navigation Helper
   const navigateTo = (page, id = null) => {
+    if (page === 'admin' || page === 'privacy-audit') {
+      const isTeacher = currentUser && (currentUser.role?.includes('Teacher') || currentUser.role?.includes('Admin'));
+      if (!isTeacher) {
+        showToast(`Access restricted: ${page === 'admin' ? 'Admin Dashboard' : 'Privacy Audit'} is only accessible to verified faculty and teachers.`, 'error');
+        setCurrentPage('dashboard');
+        localStorage.setItem('kyzera_current_page', 'dashboard');
+        return;
+      }
+    }
     if (page === 'ticket-detail' && id) {
       setSelectedTicketId(id);
+      localStorage.setItem('kyzera_ticket_id', id);
     }
     if (page === 'duplicate-cluster' && id) {
       setSelectedClusterId(id);
+      localStorage.setItem('kyzera_cluster_id', id);
     }
     setCurrentPage(page);
+    localStorage.setItem('kyzera_current_page', page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Switch role between Student, Chief Admin, Ethics Officer
-  const switchRole = (roleKey) => {
-    const user = USERS[roleKey] || USERS.student;
-    setCurrentUser(user);
-    showToast(`Switched active persona to ${user.name} (${user.role})`, 'info');
+  // Login Handlers
+  const loginAsStudent = (customData = null) => {
+    const studentUser = customData || PRESET_USERS.student;
+    setCurrentUser(studentUser);
+    setIsAuthenticated(true);
+    localStorage.setItem('kyzera_user', JSON.stringify(studentUser));
+    localStorage.setItem('kyzera_auth', 'true');
+    localStorage.setItem('kyzera_current_page', 'dashboard');
+    showToast(`Logged in as Student: ${studentUser.name} (Identity masked publicly as ${studentUser.anonymousId})`, 'success');
+    navigateTo('dashboard');
+  };
+
+  const loginAsAdmin = (customData = null) => {
+    const adminUser = customData || PRESET_USERS.admin;
+    setCurrentUser(adminUser);
+    setIsAuthenticated(true);
+    localStorage.setItem('kyzera_user', JSON.stringify(adminUser));
+    localStorage.setItem('kyzera_auth', 'true');
+    localStorage.setItem('kyzera_current_page', 'admin');
+    showToast(`Logged in as Teacher / Admin: ${adminUser.name} (Access granted to student submitter identities)`, 'success');
+    navigateTo('admin');
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    localStorage.removeItem('kyzera_user');
+    localStorage.removeItem('kyzera_auth');
+    localStorage.removeItem('kyzera_current_page');
+    localStorage.removeItem('kyzera_ticket_id');
+    localStorage.removeItem('kyzera_cluster_id');
+    showToast('You have been logged out.', 'info');
+    navigateTo('login');
   };
 
   // Upvote Action
@@ -121,29 +290,38 @@ export function CampusProvider({ children }) {
   // Add new Ticket
   const addTicket = async (ticketData) => {
     const newId = `CP-${Math.floor(4035 + Math.random() * 500)}`;
-    const studentId = currentUser.anonymousId || generateAnonymousId();
+    const studentAnonId = currentUser?.anonymousId || generateAnonymousId();
     const token = `${Math.floor(1000 + Math.random() * 9000)}-${['A', 'B', 'C', 'X'][Math.floor(Math.random() * 4)]}`;
 
     const newTicket = {
       id: newId,
       title: ticketData.title,
-      category: ticketData.category || 'Hostel Facilities',
+      category: ticketData.category || 'Sanitation & Facilities',
       priority: ticketData.priority || 'Urgent',
       status: 'Under Review',
-      location: ticketData.location || 'Campus Main Grounds',
+      location: ticketData.location || 'Campus Grounds',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      studentId: studentId.replace('Anonymous Student ', ''),
+      // Anonymous tokens (visible to other students)
+      studentId: studentAnonId.replace('Anonymous Student ', ''),
       token,
       isAnonymous: ticketData.isAnonymous ?? true,
+      // Real student identity (visible to Admin / Teachers only)
+      studentRealName: currentUser?.name || 'Aditya Sharma',
+      studentEmail: currentUser?.email || 'a.sharma@kyzera.edu',
+      studentRoll: currentUser?.roll || '2022-CS-041',
+      studentDept: currentUser?.department || 'Computer Science & Engineering',
+      studentDorm: currentUser?.dorm || 'Hostel Block C, Room 312',
       upvotes: 1,
       hasUpvoted: true,
       clusterId: ticketData.clusterId || null,
       subordinatesCount: 0,
-      assignedDept: ticketData.category === 'Hostel Facilities' || ticketData.category === 'Sanitation & Facilities'
-        ? 'Kyzera Facilities & Sanitation Division'
+      assignedDept: ticketData.category === 'Sanitation & Facilities'
+        ? 'Facilities & Sanitation Division'
         : ticketData.category === 'IT & Network'
         ? 'Campus IT Network Operations'
+        : ticketData.category === 'Infrastructure & Safety'
+        ? 'Electrical & Infrastructure Maintenance'
         : 'Student Affairs & Campus Support',
       lead: 'Pending Administrative Assignment',
       liaison: 'Prof. Sarah Jenkins - Student Affairs Oversight Liaison',
@@ -161,7 +339,7 @@ export function CampusProvider({ children }) {
         },
         {
           step: 2,
-          title: 'AI Categorized & Clustered',
+          title: 'AI Classified & Clustered',
           date: 'Just now',
           desc: `Categorized as ${ticketData.category}. Neural triage confidence 97.8%.`,
           status: 'completed'
@@ -175,7 +353,7 @@ export function CampusProvider({ children }) {
         },
         {
           step: 4,
-          title: 'Resolution & Sign-Off',
+          title: 'Resolved',
           date: 'Pending',
           desc: 'Verification and closure sign-off.',
           status: 'pending'
@@ -186,7 +364,13 @@ export function CampusProvider({ children }) {
 
     setTickets(prev => [newTicket, ...prev]);
 
-    // Add to live stream ticker
+    // Save to Firebase Firestore if connected
+    if (isFirebaseReady()) {
+      addTicketToFirebase(newTicket).catch(err => {
+        console.warn('Firebase sync warning:', err);
+      });
+    }
+
     setLiveStream(prev => [
       {
         id: `ls-${Date.now()}`,
@@ -198,7 +382,7 @@ export function CampusProvider({ children }) {
       ...prev.slice(0, 5)
     ]);
 
-    showToast(`Ticket #${newId} successfully filed and hashed anonymously!`, 'success');
+    showToast(`Ticket #${newId} filed successfully! Identity protected from other students.`, 'success');
     navigateTo('ticket-detail', newId);
     return newTicket;
   };
@@ -229,20 +413,28 @@ export function CampusProvider({ children }) {
         return t;
       })
     );
+
+    if (isFirebaseReady()) {
+      updateTicketStatusInFirebase(ticketId, newStatus).catch(err => {
+        console.warn('Firebase status update warning:', err);
+      });
+    }
+
     showToast(`Ticket #${ticketId} status updated to: ${newStatus}`, 'success');
   };
 
   // Add Comment to Ticket
   const addComment = (ticketId, text) => {
     if (!text.trim()) return;
-    const authorName = currentUser.role === 'Student'
-      ? currentUser.anonymousId
-      : `${currentUser.name} (${currentUser.title || currentUser.role})`;
+    const isTeacher = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
+    const authorName = isTeacher
+      ? `${currentUser.name} (${currentUser.title || 'Teacher / Admin'})`
+      : currentUser?.anonymousId || 'Anonymous Student #CP-8841';
 
     const comment = {
       id: `c-${Date.now()}`,
       author: authorName,
-      role: currentUser.role,
+      role: isTeacher ? 'Admin / Teacher' : 'Student',
       time: 'Just now',
       text
     };
@@ -285,14 +477,14 @@ export function CampusProvider({ children }) {
         day: '2-digit',
         year: 'numeric'
       }) + ` • ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-      requester: `${currentUser.name} (${currentUser.role})`,
+      requester: `${currentUser?.name || 'Prof. David Tan'} (Teacher / Admin)`,
       ticketId,
       ticketTitle: ticket ? ticket.title : 'Emergency Incident',
       justification,
       status: 'Approved & Signed',
       facultySignOff: `Dual-Signed (${facultySigner1} & ${facultySigner2})`,
       hash: shortHash,
-      revealedStudent: 'Aditya Sharma (Roll #2022-CS-041 • Hostel C Rm 312)'
+      revealedStudent: ticket ? `${ticket.studentRealName} (${ticket.studentRoll} • ${ticket.studentDorm})` : 'Aditya Sharma (2022-CS-041)'
     };
 
     setAuditLogs(prev => [newLog, ...prev]);
@@ -320,6 +512,7 @@ export function CampusProvider({ children }) {
   return (
     <CampusContext.Provider
       value={{
+        isAuthenticated,
         currentPage,
         navigateTo,
         selectedTicketId,
@@ -327,8 +520,9 @@ export function CampusProvider({ children }) {
         selectedClusterId,
         setSelectedClusterId,
         currentUser,
-        setCurrentUser,
-        switchRole,
+        loginAsStudent,
+        loginAsAdmin,
+        logout,
         tickets,
         setTickets,
         clusters,
@@ -346,7 +540,12 @@ export function CampusProvider({ children }) {
         markClusterResolved,
         requestIdentityReveal,
         broadcastEmergency,
-        dismissEmergency
+        dismissEmergency,
+        activeStudentsCount,
+        activeTeachersCount,
+        resolutionRate,
+        isFirebaseConnected,
+        setIsFirebaseConnected
       }}
     >
       {children}
@@ -361,4 +560,3 @@ export function useCampus() {
   }
   return context;
 }
-

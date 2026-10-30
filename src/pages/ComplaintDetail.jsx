@@ -17,7 +17,10 @@ import {
   AlertTriangle,
   ZoomIn,
   ExternalLink,
-  Edit3
+  Edit3,
+  UserCheck,
+  GraduationCap,
+  EyeOff
 } from 'lucide-react';
 import LightboxModal from '../components/LightboxModal';
 
@@ -38,7 +41,38 @@ export default function ComplaintDetail() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [activePhotoTitle, setActivePhotoTitle] = useState('');
 
-  const ticket = tickets.find(t => t.id === selectedTicketId) || tickets[0];
+  const ticket = (tickets && tickets.find(t => t.id === selectedTicketId)) || (tickets && tickets[0]);
+  const isTeacherOrAdmin = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
+
+  if (!ticket) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <div className="p-8 sm:p-12 rounded-2xl bg-[#101726] border border-slate-800 text-slate-400 shadow-2xl">
+          <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-4 text-slate-400">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h2 className="text-xl font-bold text-white">No Complaints Logged Yet</h2>
+          <p className="text-xs sm:text-sm text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
+            All complaints and suggestions have been cleared. Submit a new complaint or suggestion to view real-time incident tracking and administrative action.
+          </p>
+          <div className="mt-6 flex items-center justify-center space-x-3">
+            <button
+              onClick={() => navigateTo('submit')}
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-sm transition-all"
+            >
+              <span>+ Submit New Complaint</span>
+            </button>
+            <button
+              onClick={() => navigateTo(isTeacherOrAdmin ? 'admin' : 'dashboard')}
+              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white font-semibold text-xs transition-colors"
+            >
+              <span>Return to Dashboard</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleShare = () => {
     navigator.clipboard?.writeText(window.location.href);
@@ -80,11 +114,11 @@ export default function ComplaintDetail() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-4">
         <div className="flex items-center space-x-2 text-xs text-slate-400">
           <button
-            onClick={() => navigateTo('dashboard')}
+            onClick={() => navigateTo(isTeacherOrAdmin ? 'admin' : 'dashboard')}
             className="hover:text-white flex items-center space-x-1"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Dashboard</span>
+            <span>{isTeacherOrAdmin ? 'Admin Center' : 'My Dashboard'}</span>
           </button>
           <span>/</span>
           <span className="text-slate-300">{ticket.category}</span>
@@ -94,11 +128,11 @@ export default function ComplaintDetail() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => navigateTo('dashboard')}
+            onClick={() => navigateTo(isTeacherOrAdmin ? 'admin' : 'dashboard')}
             className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center space-x-1.5 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Return to Feed</span>
+            <span>Return</span>
           </button>
 
           <button
@@ -106,7 +140,7 @@ export default function ComplaintDetail() {
             className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center space-x-1.5 transition-colors"
           >
             <Share2 className="w-3.5 h-3.5" />
-            <span>Share Public Link</span>
+            <span>Share Link</span>
           </button>
 
           <button
@@ -114,7 +148,7 @@ export default function ComplaintDetail() {
             className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center space-x-1.5 transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print Case Summary</span>
+            <span>Print Case</span>
           </button>
         </div>
       </div>
@@ -149,14 +183,14 @@ export default function ComplaintDetail() {
                 </span>
               </div>
 
-              {/* Admin Status Quick Updater */}
-              {currentUser.role !== 'Student' && (
-                <div className="flex items-center space-x-2 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-700">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Status:</span>
+              {/* Admin/Teacher Quick Status Updater */}
+              {isTeacherOrAdmin && (
+                <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-purple-500/40">
+                  <span className="text-[10px] uppercase font-bold text-purple-300">Teacher Action:</span>
                   <select
                     value={ticket.status}
                     onChange={(e) => updateTicketStatus(ticket.id, e.target.value)}
-                    className="bg-transparent text-xs font-bold text-blue-400 focus:outline-none"
+                    className="bg-transparent text-xs font-bold text-white focus:outline-none"
                   >
                     <option value="Submitted">Submitted</option>
                     <option value="Under Review">Under Review</option>
@@ -167,19 +201,72 @@ export default function ComplaintDetail() {
               )}
             </div>
 
+            {/* SUBMITTER IDENTITY CARD: ROLE BASED (STUDENT VS TEACHER) */}
+            {isTeacherOrAdmin ? (
+              /* TEACHER VIEW: REAL STUDENT NAME & CONTACT DETAILS VISIBLE */
+              <div className="mb-5 p-4 rounded-xl bg-purple-950/30 border border-purple-500/50">
+                <div className="flex items-center justify-between pb-2 border-b border-purple-800/40 mb-2">
+                  <div className="flex items-center space-x-2 text-xs font-bold text-purple-300">
+                    <UserCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Verified Student Submitter (Teacher Access Clearance)</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-purple-400 bg-purple-900/40 px-2 py-0.5 rounded">
+                    Token: #{ticket.id}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Student Full Name:</span>
+                    <span className="text-white font-bold text-sm">{ticket.studentRealName || 'Aditya Sharma'}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">University Roll Number:</span>
+                    <span className="text-purple-300 font-mono font-bold">{ticket.studentRoll || '2022-CS-041'}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Institutional Email:</span>
+                    <span className="text-blue-400 font-mono">{ticket.studentEmail || 'a.sharma@kyzera.edu'}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Department &amp; Dormitory:</span>
+                    <span className="text-slate-200">{ticket.studentDept} • {ticket.studentDorm}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* STUDENT VIEW: IDENTITY IS HIDDEN AND MASKED AS ANONYMOUS TOKEN */
+              <div className="mb-5 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-2.5">
+                  <Lock className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <div>
+                    <span className="text-slate-200 font-semibold block">
+                      Submitter: <span className="text-amber-300 font-mono font-bold">Anonymous Student #{ticket.studentId}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Peer identity masked. Protected by Kyzera Student Privacy Charter §4.2.
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded">
+                  ANONYMOUS
+                </span>
+              </div>
+            )}
+
             {/* Submitter & SLA Meta */}
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 font-mono mb-4 pb-4 border-b border-slate-800">
-              <span className="text-slate-300 font-bold flex items-center space-x-1">
-                <Lock className="w-3.5 h-3.5 text-blue-400" />
-                <span>Anonymous Student</span>
-              </span>
-              <span>•</span>
               <span>Ticket ID: #{ticket.id}</span>
+              <span>•</span>
+              <span>Location: {ticket.location}</span>
               <span>•</span>
               <span>Submitted Nov 10, 2024 at 07:14 AM</span>
               <span>•</span>
               <span className="text-emerald-400 font-semibold">
-                Status: Under Active SLA ({ticket.slaTotalHours} hrs)
+                SLA: {ticket.slaRemainingHours}h remaining
               </span>
             </div>
 
@@ -197,7 +284,7 @@ export default function ComplaintDetail() {
             <div className="mb-6 p-4 rounded-xl bg-slate-950/60 border border-slate-800">
               <div className="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">
                 <div className="flex items-center space-x-2">
-                  <span>Attached Evidence Gallery (Requirement 2 Optional Image)</span>
+                  <span>Attached Evidence Gallery</span>
                   <span className="text-slate-500 font-normal">({ticket.evidence.length} files)</span>
                 </div>
                 <span className="text-[10px] text-blue-400 font-mono">
@@ -345,7 +432,7 @@ export default function ComplaintDetail() {
                   type="text"
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder={`Post public observation as ${currentUser.role === 'Student' ? 'Anonymous Student' : currentUser.name}...`}
+                  placeholder={`Post public observation as ${isTeacherOrAdmin ? currentUser.name : 'Anonymous Student'}...`}
                   className="flex-1 bg-[#0a0e17] border border-slate-700 rounded-lg px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
                 <button
@@ -377,7 +464,6 @@ export default function ComplaintDetail() {
                   {ticket.slaRemainingHours} hrs remaining
                 </span>
               </div>
-              {/* Progress bar */}
               <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                 <div className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full" style={{
                   width: ticket.status === 'Resolved' ? '100%' : ticket.status === 'In Progress' ? '75%' : ticket.status === 'Under Review' ? '50%' : '25%'

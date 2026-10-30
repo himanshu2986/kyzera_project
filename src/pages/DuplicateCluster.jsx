@@ -25,8 +25,28 @@ export default function DuplicateCluster() {
     showToast
   } = useCampus();
 
-  const cluster = clusters.find(c => c.id === selectedClusterId) || clusters[0];
-  const [subordinates, setSubordinates] = useState(cluster.subordinateReports || []);
+  const cluster = (clusters && clusters.find(c => c.id === selectedClusterId)) || (clusters && clusters[0]);
+  const [subordinates, setSubordinates] = useState(cluster?.subordinateReports || []);
+
+  if (!cluster) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <div className="p-8 sm:p-12 rounded-2xl bg-[#101726] border border-slate-800 text-slate-400 shadow-2xl">
+          <Layers className="w-12 h-12 mx-auto text-slate-600 mb-4" />
+          <h2 className="text-xl font-bold text-white">No Duplicate Clusters Active</h2>
+          <p className="text-xs sm:text-sm text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
+            All complaints and suggestions are cleared. When multiple similar reports are filed by students, Kyzera NLP vector engine automatically groups them into recurring issue clusters.
+          </p>
+          <button
+            onClick={() => navigateTo('dashboard')}
+            className="mt-6 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-sm transition-all"
+          >
+            <span>Return to Dashboard</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleDetach = (id) => {
     setSubordinates(prev => prev.filter(item => item.id !== id));

@@ -3,7 +3,8 @@ import { useCampus } from '../context/CampusContext';
 import { ShieldCheck, PhoneCall, ExternalLink, Lock } from 'lucide-react';
 
 export default function Footer() {
-  const { navigateTo } = useCampus();
+  const { navigateTo, currentUser } = useCampus();
+  const isTeacherOrAdmin = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
 
   return (
     <footer className="bg-[#070a10] border-t border-[#1a2333] text-slate-400 mt-20">
@@ -41,11 +42,13 @@ export default function Footer() {
                   Live Public Feed
                 </button>
               </li>
-              <li>
-                <button onClick={() => navigateTo('admin')} className="hover:text-blue-400 transition-colors">
-                  Campus Governance Command
-                </button>
-              </li>
+              {isTeacherOrAdmin && (
+                <li>
+                  <button onClick={() => navigateTo('admin')} className="hover:text-blue-400 transition-colors">
+                    Campus Governance Command
+                  </button>
+                </li>
+              )}
               <li>
                 <button onClick={() => navigateTo('duplicate-cluster', 'CL-882')} className="hover:text-blue-400 transition-colors">
                   Incident Impact Clusters

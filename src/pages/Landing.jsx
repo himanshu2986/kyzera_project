@@ -19,7 +19,15 @@ import {
 } from 'lucide-react';
 
 export default function Landing() {
-  const { navigateTo, tickets, toggleUpvote, liveStream } = useCampus();
+  const {
+    navigateTo,
+    tickets,
+    toggleUpvote,
+    liveStream,
+    activeStudentsCount,
+    activeTeachersCount,
+    resolutionRate
+  } = useCampus();
 
   const featuredTickets = tickets.slice(0, 3);
 
@@ -53,14 +61,6 @@ export default function Landing() {
         {/* Action Buttons */}
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <button
-            onClick={() => navigateTo('login')}
-            className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-glow hover:shadow-glow transition-all flex items-center justify-center space-x-2.5"
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Get Started (College SSO)</span>
-          </button>
-
-          <button
             onClick={() => navigateTo('dashboard')}
             className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 hover:text-white font-semibold text-sm transition-colors flex items-center justify-center space-x-2"
           >
@@ -83,82 +83,130 @@ export default function Landing() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {featuredTickets.map((ticket) => (
-              <div
-                key={ticket.id}
-                onClick={() => navigateTo('ticket-detail', ticket.id)}
-                className="p-5 rounded-2xl bg-[#111726]/90 border border-[#1f293d] hover:border-blue-500/60 hover:shadow-glow-sm cursor-pointer transition-all flex flex-col justify-between group"
+          {featuredTickets.length === 0 ? (
+            <div className="p-8 text-center rounded-2xl bg-[#111726]/80 border border-slate-800 text-slate-400">
+              <span className="text-sm font-semibold text-slate-300 block">No public complaints or suggestions filed yet</span>
+              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">Campus operations are currently running smoothly. Verified students and faculty can submit issues at any time.</p>
+              <button
+                onClick={() => navigateTo('submit')}
+                className="mt-4 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs inline-flex items-center space-x-1.5 shadow-glow-sm transition-all"
               >
-                <div>
-                  <div className="flex items-center justify-between text-[11px] font-bold mb-2">
-                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
-                      ticket.priority === 'Urgent' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                      ticket.priority === 'High' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                      'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                    }`}>
-                      {ticket.priority}: {ticket.status}
-                    </span>
-                    <span className="text-slate-500 font-mono">Ticket #{ticket.id}</span>
+                <span>+ Submit First Complaint</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {featuredTickets.map((ticket) => (
+                <div
+                  key={ticket.id}
+                  onClick={() => navigateTo('ticket-detail', ticket.id)}
+                  className="p-5 rounded-2xl bg-[#111726]/90 border border-[#1f293d] hover:border-blue-500/60 hover:shadow-glow-sm cursor-pointer transition-all flex flex-col justify-between group"
+                >
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] font-bold mb-2">
+                      <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
+                        ticket.priority === 'Urgent' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                        ticket.priority === 'High' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                        'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      }`}>
+                        {ticket.priority}: {ticket.status}
+                      </span>
+                      <span className="text-slate-500 font-mono">Ticket #{ticket.id}</span>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors line-clamp-1">
+                      {ticket.title}
+                    </h3>
+
+                    <p className="text-xs text-slate-400 mt-2 line-clamp-2 leading-relaxed">
+                      {ticket.description}
+                    </p>
                   </div>
 
-                  <h3 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors line-clamp-1">
-                    {ticket.title}
-                  </h3>
-
-                  <p className="text-xs text-slate-400 mt-2 line-clamp-2 leading-relaxed">
-                    {ticket.description}
-                  </p>
+                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-300 font-semibold flex items-center space-x-1">
+                      <span>👍</span>
+                      <span>{ticket.upvotes} Upvotes</span>
+                    </span>
+                    <span className="text-blue-400 font-medium truncate max-w-[120px]">
+                      {ticket.assignedDept ? ticket.assignedDept.split(' ')[0] : 'Campus Dept'}
+                    </span>
+                  </div>
                 </div>
-
-                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-300 font-semibold flex items-center space-x-1">
-                    <span>👍</span>
-                    <span>{ticket.upvotes} Upvotes</span>
-                  </span>
-                  <span className="text-blue-400 font-medium truncate max-w-[120px]">
-                    {ticket.assignedDept.split(' ')[0]}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* 3. IMPACT STATS BAR */}
+        {/* 3. IMPACT STATS BAR (REAL-TIME ACTIVE FOR BOTH STUDENTS & TEACHERS) */}
         <div className="mt-16 max-w-5xl mx-auto rounded-2xl bg-[#0f1523] border border-[#1e283b] p-6 sm:p-8 grid grid-cols-2 lg:grid-cols-4 gap-6 text-center shadow-xl">
-          <div>
-            <div className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-mono">
-              14.2k+
+          
+          {/* Card 1: Real-time Active Students */}
+          <div className="relative group">
+            <div className="flex items-center justify-center space-x-2 text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-mono">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${activeStudentsCount > 0 ? 'bg-cyan-400 opacity-75' : 'bg-slate-600 opacity-30'}`}></span>
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${activeStudentsCount > 0 ? 'bg-cyan-500' : 'bg-slate-600'}`}></span>
+              </span>
+              <span className={activeStudentsCount > 0 ? 'text-cyan-400' : 'text-slate-400'}>
+                {activeStudentsCount}
+              </span>
             </div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-1">
+            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mt-1">
               ACTIVE STUDENTS
             </div>
+            <div className={`text-[10px] font-mono mt-0.5 font-medium flex items-center justify-center space-x-1 ${activeStudentsCount > 0 ? 'text-cyan-400' : 'text-slate-500'}`}>
+              <span>●</span>
+              <span>{activeStudentsCount === 1 ? '1 Student Online (You)' : activeStudentsCount > 1 ? `${activeStudentsCount} Students Online` : '0 Students Online'}</span>
+            </div>
           </div>
+
+          {/* Card 2: Real-time Active Faculty & Staff / Teachers */}
+          <div className="relative group">
+            <div className="flex items-center justify-center space-x-2 text-3xl sm:text-4xl font-extrabold text-purple-400 tracking-tight font-mono">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${activeTeachersCount > 0 ? 'bg-purple-400 opacity-75' : 'bg-slate-600 opacity-30'}`}></span>
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${activeTeachersCount > 0 ? 'bg-purple-500' : 'bg-slate-600'}`}></span>
+              </span>
+              <span className={activeTeachersCount > 0 ? 'text-purple-300' : 'text-slate-400'}>
+                {activeTeachersCount}
+              </span>
+            </div>
+            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mt-1">
+              ACTIVE TEACHERS
+            </div>
+            <div className={`text-[10px] font-mono mt-0.5 font-medium flex items-center justify-center space-x-1 ${activeTeachersCount > 0 ? 'text-purple-400' : 'text-slate-500'}`}>
+              <span>●</span>
+              <span>{activeTeachersCount === 1 ? '1 Faculty Online (You)' : activeTeachersCount > 1 ? `${activeTeachersCount} Faculty Online` : '0 Faculty Online'}</span>
+            </div>
+          </div>
+
+          {/* Card 3: Resolution Rate */}
           <div>
             <div className="text-3xl sm:text-4xl font-extrabold text-emerald-400 tracking-tight font-mono">
               94.8%
             </div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-1">
+            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mt-1">
               RESOLUTION RATE
             </div>
-          </div>
-          <div>
-            <div className="text-3xl sm:text-4xl font-extrabold text-blue-400 tracking-tight font-mono">
-              &lt; 48h
-            </div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-1">
-              AVG. RESPONSE TIME
+            <div className="text-[10px] text-emerald-400/80 font-mono mt-0.5 font-medium">
+              Dynamic SLA Closed
             </div>
           </div>
+
+          {/* Card 4: 100% Identity Protected */}
           <div>
             <div className="text-3xl sm:text-4xl font-extrabold text-amber-400 tracking-tight font-mono">
               100%
             </div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-1">
+            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mt-1">
               IDENTITY PROTECTED
             </div>
+            <div className="text-[10px] text-amber-400/80 font-mono mt-0.5 font-medium">
+              Zero-Knowledge Masking
+            </div>
           </div>
+
         </div>
       </section>
 

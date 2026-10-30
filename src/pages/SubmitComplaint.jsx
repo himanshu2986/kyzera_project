@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useCampus } from '../context/CampusContext';
 import {
   FileText,
@@ -24,40 +24,63 @@ import {
 } from 'lucide-react';
 
 export default function SubmitComplaint() {
-  const { navigateTo, addTicket, showToast, currentUser } = useCampus();
+  const { navigateTo, addTicket, showToast, currentUser, tickets } = useCampus();
+  const isTeacherOrAdmin = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
+
+  const myComplaintsCount = useMemo(() => {
+    if (!tickets || tickets.length === 0) return 0;
+    const userEmail = currentUser?.email?.trim().toLowerCase();
+    const userName = currentUser?.name?.trim().toLowerCase();
+    const userAnonId = currentUser?.anonymousId?.trim().toLowerCase();
+
+    const matches = tickets.filter(t => {
+      if (userEmail && t.studentEmail && t.studentEmail.trim().toLowerCase() === userEmail) return true;
+      if (userName && t.studentRealName && t.studentRealName.trim().toLowerCase() === userName) return true;
+      if (userAnonId && t.studentId && userAnonId.includes(t.studentId.trim().toLowerCase())) return true;
+      return false;
+    });
+
+    if (matches.length > 0) return matches.length;
+    return tickets.length;
+  }, [tickets, currentUser]);
 
   const [formType, setFormType] = useState('Complaint'); // 'Complaint' | 'Suggestion'
-  const [title, setTitle] = useState('Hostel Block C - Water supply disrupted every morning at 6 AM');
+  const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Sanitation & Facilities');
-  const [location, setLocation] = useState('Hostel Block C, Floors 2-4');
-  const [description, setDescription] = useState(
-    'Since Monday Nov 10th, the primary overhead water booster pump for Block C fails to activate during peak morning preparation hours (06:00 AM - 07:30 AM). Over 180 residents are unable to use restrooms or shower before 08:30 AM lectures. Warden notified verbally without action.'
-  );
+  const [location, setLocation] = useState('');
+  const [description, setDescription] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(true);
-  const [attachedFiles, setAttachedFiles] = useState([
-    { name: 'pump_leak_photo.jpg', size: '2.1 MB', type: 'image/jpeg' },
-    { name: 'water_heater_panel.png', size: '1.8 MB', type: 'image/png' }
-  ]);
+  const [attachedFiles, setAttachedFiles] = useState([]);
 
   // AI Assistant Live Analysis State
   const [aiAnalysis, setAiAnalysis] = useState({
-    detectedCategory: 'Sanitation & Facilities',
-    categoryMatch: 98.4,
-    domain: 'Sanitation',
-    priority: 'URGENT',
-    prioritySeverity: 'HIGH',
-    priorityReason: 'Impacts essential health, hygiene & living conditions during morning rush. Escalated to Facilities Direct Dispatch.',
-    duplicates: [
-      { id: 'HC-3812', title: 'Hostel Block water pressure fault Mon-Wed', match: 92 },
-      { id: 'HC-3790', title: 'No water on floors 3, 4 before 8am in morning', match: 89 },
-      { id: 'HC-3742', title: 'Water pump noise and cutting sound in C wing', match: 81 }
-    ],
-    clusterNearby: 3
+    detectedCategory: 'Awaiting grievance details...',
+    categoryMatch: 0,
+    domain: 'Pending',
+    priority: 'MEDIUM',
+    prioritySeverity: 'STANDARD',
+    priorityReason: 'Enter an issue title or description below to activate real-time intelligent classification and priority detection.',
+    duplicates: [],
+    clusterNearby: 0
   });
 
   // Dynamic Rule-based + NLP Classification Engine
   useEffect(() => {
-    const text = (title + ' ' + description).toLowerCase();
+    const text = (title + ' ' + description).toLowerCase().trim();
+
+    if (!text) {
+      setAiAnalysis({
+        detectedCategory: 'Awaiting grievance details...',
+        categoryMatch: 0,
+        domain: 'Pending',
+        priority: 'MEDIUM',
+        prioritySeverity: 'STANDARD',
+        priorityReason: 'Enter an issue title or description below to activate real-time intelligent classification and priority detection.',
+        duplicates: [],
+        clusterNearby: 0
+      });
+      return;
+    }
 
     // 1. Academics domain
     if (
@@ -331,7 +354,7 @@ export default function SubmitComplaint() {
                 <span>My Complaints</span>
               </div>
               <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                4
+                {myComplaintsCount}
               </span>
             </button>
 
@@ -343,21 +366,15 @@ export default function SubmitComplaint() {
               <span>Public Feed</span>
             </button>
 
-            <button
-              onClick={() => navigateTo('admin')}
-              className="w-full py-2 px-3 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 text-xs font-semibold flex items-center space-x-2 transition-colors"
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              <span>Admin Dashboard</span>
-            </button>
-
-            <button
-              onClick={() => navigateTo('privacy-audit')}
-              className="w-full py-2 px-3 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 text-xs font-semibold flex items-center space-x-2 transition-colors"
-            >
-              <Lock className="w-4 h-4" />
-              <span>Privacy Audit</span>
-            </button>
+            {isTeacherOrAdmin && (
+              <button
+                onClick={() => navigateTo('admin')}
+                className="w-full py-2 px-3 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 text-xs font-semibold flex items-center space-x-2 transition-colors"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Admin Dashboard</span>
+              </button>
+            )}
           </div>
 
           {/* SLA Card */}

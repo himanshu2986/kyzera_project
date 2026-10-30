@@ -16,9 +16,15 @@ import DuplicateCluster from './pages/DuplicateCluster';
 import PrivacyAudit from './pages/PrivacyAudit';
 
 function AppContent() {
-  const { currentPage } = useCampus();
+  const { currentPage, isAuthenticated, currentUser } = useCampus();
+  const isTeacherOrAdmin = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
 
   const renderPage = () => {
+    // When not logged in, first and default page is strictly Login (or About Kyzera if clicked)
+    if (!isAuthenticated && currentPage !== 'home') {
+      return <Login />;
+    }
+
     switch (currentPage) {
       case 'home':
         return <Landing />;
@@ -31,13 +37,19 @@ function AppContent() {
       case 'ticket-detail':
         return <ComplaintDetail />;
       case 'admin':
+        if (!isTeacherOrAdmin) {
+          return <StudentDashboard />;
+        }
         return <AdminCommandCenter />;
       case 'duplicate-cluster':
         return <DuplicateCluster />;
       case 'privacy-audit':
+        if (!isTeacherOrAdmin) {
+          return <StudentDashboard />;
+        }
         return <PrivacyAudit />;
       default:
-        return <Landing />;
+        return <Login />;
     }
   };
 
