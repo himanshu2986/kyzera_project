@@ -17,7 +17,8 @@ import {
   MapPin,
   TrendingUp,
   ShieldCheck,
-  Lock
+  Lock,
+  User
 } from 'lucide-react';
 import { exportToCSV } from '../utils/crypto';
 
@@ -102,15 +103,23 @@ export default function StudentDashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-      {/* Top Banner / Student Anonymous Identity */}
+      {/* Top Banner / Student Identity & Privacy Status */}
       <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-950/70 border border-blue-800/60 text-blue-400 text-xs font-mono font-semibold">
-              <Lock className="w-3 h-3" />
-              <span>STUDENT ANONYMOUS ID: {currentUser?.anonymousId || '#CP-8841'} • Active Token {currentUser?.token || '7820-A'}</span>
+            <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-blue-950/80 border border-blue-600/50 text-xs font-semibold shadow-sm">
+              <User className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-white font-bold">{currentUser?.name || 'Verified Student'}</span>
+              {currentUser?.roll && (
+                <span className="text-blue-300 font-mono text-[11px]">({currentUser.roll})</span>
+              )}
+              <span className="text-slate-600">•</span>
+              <span className="inline-flex items-center space-x-1 text-slate-300 font-mono text-[11px]">
+                <Lock className="w-3 h-3 text-amber-400" />
+                <span>Public Mask: <span className="text-amber-300 font-bold">{currentUser?.anonymousId || '#CP-8841'}</span></span>
+              </span>
             </div>
-            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-700/80 text-[11px] font-mono text-slate-300">
+            <div className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-700/80 text-[11px] font-mono text-slate-300">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -119,10 +128,10 @@ export default function StudentDashboard() {
             </div>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            My Grievance &amp; Suggestion Dashboard
+            {currentUser?.name ? `Welcome back, ${currentUser.name}` : 'My Grievance & Suggestion Dashboard'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Real-time status tracking, community consensus clustering, and resolution audits.
+            Logged in as <span className="text-slate-200 font-semibold">{currentUser?.name || 'Student Submitter'}</span> ({currentUser?.email || 'student@kyzera.edu'}). Public peer mask is active as <span className="text-amber-300 font-mono font-bold">{currentUser?.anonymousId || '#CP-8841'}</span>.
           </p>
         </div>
 
@@ -367,9 +376,14 @@ export default function StudentDashboard() {
                   {/* Submitter Privacy Badge (Students NEVER see other students' personal details) */}
                   <div className="mt-3 inline-flex items-center space-x-2 text-[11px] px-2.5 py-1 rounded-md bg-slate-900/90 border border-slate-800">
                     <Lock className="w-3 h-3 text-blue-400" />
-                    {ticket.studentRoll === currentUser?.roll ? (
+                    {(
+                      (currentUser?.email && ticket.studentEmail && ticket.studentEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+                      (currentUser?.roll && ticket.studentRoll && ticket.studentRoll.toLowerCase() === currentUser.roll.toLowerCase()) ||
+                      (currentUser?.name && ticket.studentRealName && ticket.studentRealName.toLowerCase() === currentUser.name.toLowerCase()) ||
+                      (currentUser?.anonymousId && ticket.studentId && currentUser.anonymousId.includes(ticket.studentId))
+                    ) ? (
                       <span className="text-emerald-300 font-medium">
-                        Submitted by You (<span className="text-white font-semibold">{currentUser?.name}</span> • Roll: {currentUser?.roll}) — Masked from peers
+                        Submitted by You (<span className="text-white font-semibold">{ticket.studentRealName || currentUser?.name}</span> • Roll: {ticket.studentRoll || currentUser?.roll}) — Masked from peers
                       </span>
                     ) : (
                       <span className="text-slate-400">

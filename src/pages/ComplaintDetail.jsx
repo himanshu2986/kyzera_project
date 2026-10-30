@@ -50,6 +50,11 @@ export default function ComplaintDetail() {
 
   const ticket = (tickets && tickets.find(t => t.id === selectedTicketId)) || (tickets && tickets[0]);
   const isTeacherOrAdmin = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
+  const isOwner = 
+    (currentUser?.email && ticket?.studentEmail && ticket.studentEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+    (currentUser?.roll && ticket?.studentRoll && ticket.studentRoll.toLowerCase() === currentUser.roll.toLowerCase()) ||
+    (currentUser?.name && ticket?.studentRealName && ticket.studentRealName.toLowerCase() === currentUser.name.toLowerCase()) ||
+    (currentUser?.anonymousId && ticket?.studentId && currentUser.anonymousId.includes(ticket.studentId));
 
   if (!ticket) {
     return (
@@ -266,8 +271,27 @@ export default function ComplaintDetail() {
                   </div>
                 </div>
               </div>
+            ) : isOwner ? (
+              /* STUDENT VIEW: LOGGED-IN STUDENT LOOKING AT THEIR OWN COMPLAINT */
+              <div className="mb-5 p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/40 flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-2.5">
+                  <User className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <div>
+                    <span className="text-white font-semibold block">
+                      Submitted by You: <span className="text-emerald-300 font-bold">{ticket.studentRealName || currentUser?.name}</span>
+                      <span className="text-slate-400 font-mono text-[11px] ml-2">({ticket.studentRoll || currentUser?.roll} • {ticket.studentEmail || currentUser?.email})</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Publicly masked from other students as <span className="text-amber-300 font-mono font-bold">Anonymous Student #{ticket.studentId}</span> for your peer privacy.
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded font-bold">
+                  YOUR COMPLAINT
+                </span>
+              </div>
             ) : (
-              /* STUDENT VIEW: IDENTITY IS HIDDEN AND MASKED AS ANONYMOUS TOKEN */
+              /* STUDENT VIEW: PEER VIEWING ANOTHER STUDENT'S COMPLAINT */
               <div className="mb-5 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
                 <div className="flex items-center space-x-2.5">
                   <Lock className="w-4 h-4 text-blue-400 flex-shrink-0" />
@@ -280,7 +304,7 @@ export default function ComplaintDetail() {
                     </span>
                   </div>
                 </div>
-                <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded">
+                <span className="text-[10px] text-amber-400 font-mono bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded">
                   ANONYMOUS
                 </span>
               </div>
