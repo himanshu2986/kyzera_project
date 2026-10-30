@@ -31,8 +31,10 @@ import {
   COLLEGE_INFO,
   COLLEGE_DEPARTMENTS,
   COLLEGE_STUDENTS,
+  COLLEGE_FACULTY,
   findStudentByRoll,
   findStudentByEmail,
+  findFacultyByEmail,
   verifyCollegeEnrollment
 } from '../data/collegeRoster';
 
@@ -248,12 +250,17 @@ export default function Login() {
       .map(part => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ') || 'Prof. David Tan';
 
+    const matchedFaculty = findFacultyByEmail(adminEmail);
+    const facultyName = matchedFaculty?.name || (cleanName === 'Faculty' ? 'Prof. David Tan' : cleanName);
+    const facultyTitle = matchedFaculty?.title || 'Senior Faculty & Facilities Committee Lead';
+    const facultyDept = matchedFaculty?.department || 'Kyzera Physical Infrastructure & Engineering Faculty';
+
     loginAsAdmin({
-      email: adminEmail,
-      name: cleanName === 'Faculty' ? 'Prof. David Tan' : cleanName,
+      email: adminEmail.trim().toLowerCase(),
+      name: facultyName,
       role: 'Admin / Teacher',
-      title: 'Senior Faculty & Facilities Committee Lead',
-      department: 'Kyzera Physical Infrastructure & Engineering Faculty',
+      title: facultyTitle,
+      department: facultyDept,
       verified: true
     });
   };
@@ -354,18 +361,18 @@ export default function Login() {
         </div>
 
         {/* Right Authentication Form Card */}
-        <div className="lg:col-span-5 bg-[#121929] border border-[#1f293d] rounded-2xl p-8 flex flex-col justify-between shadow-2xl relative">
+        <div className="lg:col-span-5 bg-gradient-to-b from-[#111726]/95 via-[#0d1322]/95 to-[#090e1a]/95 border border-[#1f293d] rounded-2xl p-6 sm:p-8 flex flex-col justify-between shadow-2xl relative backdrop-blur-xl">
           
           <div>
             {/* Top Role Selector Tabs */}
-            <div className="grid grid-cols-2 gap-2 bg-[#090d16] p-1 rounded-xl mb-6 border border-slate-800">
+            <div className="grid grid-cols-2 gap-1.5 bg-[#070b14] p-1.5 rounded-xl mb-6 border border-slate-800/80">
               <button
                 type="button"
                 onClick={() => setRoleTab('student')}
-                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 ${
+                className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center space-x-2 ${
                   roleTab === 'student'
-                    ? 'bg-blue-600 text-white shadow-glow-sm'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.35)]'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
                 }`}
               >
                 <GraduationCap className="w-4 h-4" />
@@ -375,10 +382,10 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setRoleTab('admin')}
-                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 ${
+                className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center space-x-2 ${
                   roleTab === 'admin'
-                    ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
                 }`}
               >
                 <Briefcase className="w-4 h-4" />
@@ -389,26 +396,30 @@ export default function Login() {
             {/* TAB 1: STUDENT LOGIN */}
             {roleTab === 'student' ? (
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2 text-xs font-semibold text-blue-400 uppercase tracking-wider">
-                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                    <span>ENROLLED STUDENTS ONLY</span>
+                {/* Status & Non-College Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[11px] font-semibold text-blue-300 tracking-wide">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+                    <span>Enrolled Students Only</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowNonCollegeModal(true)}
-                    className="text-[11px] text-amber-400 hover:text-amber-300 underline font-mono flex items-center space-x-1"
+                    className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-medium text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all"
                   >
+                    <HelpCircle className="w-3 h-3 text-amber-400" />
                     <span>Non-College User?</span>
                   </button>
                 </div>
 
                 {/* College Student Gatekeeper Banner */}
-                <div className="mb-4 p-3 rounded-xl bg-blue-950/40 border border-blue-800/60 flex items-start space-x-2.5 text-xs">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-                  <div className="text-slate-300 leading-snug">
-                    <span className="font-bold text-white block">Campus Identity Gatekeeper:</span>
-                    Access is restricted to verified university students. External visitors cannot enter without an enrolled <strong className="text-blue-300">College Roll Number</strong> and active campus passcode.
+                <div className="mb-5 p-3 rounded-xl bg-gradient-to-r from-blue-950/40 via-slate-900/60 to-blue-950/20 border border-blue-500/20 flex items-start space-x-2.5 text-xs backdrop-blur-sm shadow-sm">
+                  <div className="p-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex-shrink-0 mt-0.5">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="text-slate-300 text-[11px] leading-relaxed">
+                    <span className="font-semibold text-white">Campus Identity Gatekeeper: </span>
+                    Restricted to enrolled university students. Requires a valid <strong className="text-blue-300 font-medium">Roll Number</strong> and student access passcode.
                   </div>
                 </div>
 
@@ -421,13 +432,13 @@ export default function Login() {
 
                 <form onSubmit={handleStudentSubmit} className="space-y-4">
                   {/* Field 1: Email Address */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Student Institutional / Gmail Address <span className="text-red-400">*</span>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-slate-200">
+                      Student Institutional / Gmail Address <span className="text-rose-400">*</span>
                     </label>
 
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-mono text-sm">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 font-mono text-xs pointer-events-none">
                         @
                       </span>
                       <input
@@ -435,7 +446,7 @@ export default function Login() {
                         value={studentEmail}
                         onChange={(e) => setStudentEmail(e.target.value)}
                         placeholder="thakurhimanshu830@gmail.com"
-                        className="w-full bg-[#0a0e17] border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono"
+                        className="w-full bg-[#0a0f1d] border border-slate-700/80 hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 font-mono transition-all outline-none"
                         required
                       />
                     </div>
@@ -443,14 +454,15 @@ export default function Login() {
 
                   {/* Field 2: College Roll Number & Department Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-xs font-semibold text-slate-300">
-                          College Roll No. <span className="text-red-400">*</span>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-slate-200 whitespace-nowrap">
+                          College Roll No. <span className="text-rose-400">*</span>
                         </label>
                         {matchedStudent && (
-                          <span className="text-[10px] text-emerald-400 font-mono font-bold truncate max-w-[140px]" title={matchedStudent.name}>
-                            ✓ {matchedStudent.name}
+                          <span className="text-[10px] text-emerald-400 font-mono font-medium flex items-center space-x-1 truncate max-w-[120px]" title={matchedStudent.name}>
+                            <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                            <span className="truncate">{matchedStudent.name}</span>
                           </span>
                         )}
                       </div>
@@ -459,22 +471,22 @@ export default function Login() {
                         value={studentRoll}
                         onChange={(e) => setStudentRoll(e.target.value)}
                         placeholder="2024-CS-041"
-                        className="w-full bg-[#0a0e17] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono uppercase"
+                        className="w-full bg-[#0a0f1d] border border-slate-700/80 hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 font-mono uppercase tracking-wider transition-all outline-none"
                         required
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-slate-200 whitespace-nowrap">
                         Academic Department
                       </label>
                       <select
                         value={studentDept}
                         onChange={(e) => setStudentDept(e.target.value)}
-                        className="w-full bg-[#0a0e17] border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 truncate"
+                        className="w-full bg-[#0a0f1d] border border-slate-700/80 hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl px-3 py-2.5 text-xs text-slate-100 transition-all outline-none truncate cursor-pointer"
                       >
                         {COLLEGE_DEPARTMENTS.map((dept) => (
-                          <option key={dept} value={dept}>
+                          <option key={dept} value={dept} className="bg-[#0f172a] text-slate-200 text-xs">
                             {dept}
                           </option>
                         ))}
@@ -483,17 +495,17 @@ export default function Login() {
                   </div>
 
                   {/* Field 3: Campus Student Passcode (Gatekeeper against outsiders) */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-slate-300">
-                        Campus Student Access Code <span className="text-red-400">*</span>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-200">
+                        Campus Student Access Code <span className="text-rose-400">*</span>
                       </label>
-                      <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800">
-                        Code: CAMPUS-2026
+                      <span className="text-[10px] text-emerald-400 font-mono font-semibold bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                        Passcode: CAMPUS-2026
                       </span>
                     </div>
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <KeyRound className="w-3.5 h-3.5 text-blue-400" />
                       </span>
                       <input
@@ -501,44 +513,44 @@ export default function Login() {
                         value={campusCode}
                         onChange={(e) => setCampusCode(e.target.value)}
                         placeholder="CAMPUS-2026"
-                        className="w-full bg-[#0a0e17] border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono uppercase tracking-wider"
+                        className="w-full bg-[#0a0f1d] border border-slate-700/80 hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 font-mono uppercase tracking-widest transition-all outline-none"
                         required
                       />
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      Official passcode issued to enrolled students. Non-college outsiders are denied access.
+                    <p className="text-[10px] text-slate-400">
+                      Restricts access to university students. Outsiders without code are denied.
                     </p>
                   </div>
 
                   {/* Field 4: Password (Default: 123456) */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-slate-300">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-200">
                         Student Password
                       </label>
-                      <span className="text-[10px] text-blue-400 font-mono font-bold">
+                      <span className="text-[10px] text-blue-400 font-mono font-medium bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md">
                         Default: 123456
                       </span>
                     </div>
 
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                        <Lock className="w-3.5 h-3.5" />
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
                       </span>
                       <input
                         type={showStudentPassword ? 'text' : 'password'}
                         value={studentPassword}
                         onChange={(e) => setStudentPassword(e.target.value)}
                         placeholder="123456"
-                        className="w-full bg-[#0a0e17] border border-slate-700 rounded-lg pl-8 pr-10 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono tracking-widest text-sm"
+                        className="w-full bg-[#0a0f1d] border border-slate-700/80 hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-xl pl-9 pr-10 py-2.5 text-xs text-slate-100 placeholder-slate-500 font-mono tracking-widest transition-all outline-none"
                         required
                       />
                       <button
                         type="button"
                         onClick={() => setShowStudentPassword(!showStudentPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
                       >
-                        {showStudentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        {showStudentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
@@ -548,12 +560,12 @@ export default function Login() {
                     type="button"
                     onClick={handleSendVerificationCode}
                     disabled={isSendingCode || studentTimer > 0}
-                    className="w-full py-2.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center space-x-2 transition-all shadow-glow-sm disabled:opacity-50"
+                    className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold flex items-center justify-center space-x-2 transition-all shadow-[0_0_20px_rgba(37,99,235,0.25)] hover:shadow-[0_0_25px_rgba(37,99,235,0.4)] disabled:opacity-50 disabled:pointer-events-none active:scale-[0.99]"
                   >
                     {isSendingCode ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 text-white animate-spin" />
-                        <span>Sending Random OTP to Gmail...</span>
+                        <span>Sending OTP to your Gmail...</span>
                       </>
                     ) : studentTimer > 0 ? (
                       <>
@@ -563,14 +575,14 @@ export default function Login() {
                     ) : (
                       <>
                         <Send className="w-3.5 h-3.5 text-white" />
-                        <span>Send OTP to Gmail ▷</span>
+                        <span>Send 6-Digit OTP to Gmail</span>
                       </>
                     )}
                   </button>
 
-                  {/* Sent Banner (NO CODE SHOWN ON SCREEN) */}
+                  {/* Sent Banner */}
                   {emailDeliverySent && (
-                    <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/60 flex items-center space-x-2.5 text-xs animate-fadeIn shadow-sm">
+                    <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-center space-x-2.5 text-xs animate-fadeIn shadow-sm">
                       <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                       <div>
                         <span className="text-xs font-bold text-white block">
@@ -584,9 +596,14 @@ export default function Login() {
                   )}
 
                   {/* OTP 6-Digit Section */}
-                  <div>
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-300 mb-1.5">
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-xs font-medium text-slate-200">
                       <span>One-Time Security Passcode (OTP)</span>
+                      {emailDeliverySent && (
+                        <span className="text-[10px] text-emerald-400 font-mono">
+                          ● Code Dispatched
+                        </span>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-6 gap-2">
@@ -598,19 +615,23 @@ export default function Login() {
                           maxLength={1}
                           value={digit}
                           onChange={(e) => handleStudentOtpChange(idx, e.target.value)}
-                          placeholder="-"
-                          className="w-full h-11 text-center bg-[#0a0e17] border border-slate-700 focus:border-blue-500 rounded-lg text-lg font-bold font-mono text-white focus:outline-none"
+                          placeholder=""
+                          className={`w-full h-11 text-center bg-[#0a0f1d] border rounded-xl text-base font-bold font-mono text-white transition-all outline-none ${
+                            digit
+                              ? 'border-blue-500 bg-blue-950/30 shadow-[0_0_10px_rgba(59,130,246,0.25)]'
+                              : 'border-slate-700/80 hover:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+                          }`}
                         />
                       ))}
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1.5">
-                      Enter the 6-digit random OTP received in your Gmail inbox.
+                    <p className="text-[10px] text-slate-400">
+                      Enter the 6-digit random verification OTP received in your Gmail inbox.
                     </p>
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm shadow-glow-sm transition-all flex items-center justify-center space-x-2"
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_28px_rgba(37,99,235,0.5)] transition-all flex items-center justify-center space-x-2 active:scale-[0.99] mt-2"
                   >
                     <span>Sign In to Student Portal</span>
                     <ArrowRight className="w-4 h-4" />
@@ -633,12 +654,20 @@ export default function Login() {
                 </p>
 
                 <form onSubmit={handleAdminSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Teacher / Admin College Email
-                    </label>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-200">
+                        Teacher / Admin College Email <span className="text-purple-400">*</span>
+                      </label>
+                      {findFacultyByEmail(adminEmail) && (
+                        <span className="text-[10px] text-purple-400 font-mono font-medium flex items-center space-x-1 truncate max-w-[150px]" title={findFacultyByEmail(adminEmail).name}>
+                          <Check className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                          <span className="truncate">{findFacultyByEmail(adminEmail).name}</span>
+                        </span>
+                      )}
+                    </div>
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-mono text-sm">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 font-mono text-xs pointer-events-none">
                         @
                       </span>
                       <input
@@ -646,16 +675,16 @@ export default function Login() {
                         value={adminEmail}
                         onChange={(e) => setAdminEmail(e.target.value)}
                         placeholder="prof.tan@kyzera.edu"
-                        className="w-full bg-[#0a0e17] border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
+                        className="w-full bg-[#0a0f1d] border border-slate-700/80 hover:border-slate-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 font-mono transition-all outline-none"
                         required
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-slate-300">
-                        Faculty Security PIN
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-200">
+                        Faculty Security PIN <span className="text-purple-400">*</span>
                       </label>
                       <button
                         type="button"
@@ -665,13 +694,13 @@ export default function Login() {
                         }}
                         className="text-[11px] text-purple-400 hover:text-purple-300 hover:underline font-semibold"
                       >
-                        Forgot Password / PIN?
+                        Forgot PIN?
                       </button>
                     </div>
 
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                        <KeyRound className="w-3.5 h-3.5" />
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                        <KeyRound className="w-3.5 h-3.5 text-purple-400" />
                       </span>
                       <input
                         type={showAdminPin ? 'text' : 'password'}
@@ -679,25 +708,25 @@ export default function Login() {
                         value={adminPin}
                         onChange={(e) => setAdminPin(e.target.value)}
                         placeholder="2345"
-                        className="w-full bg-[#0a0e17] border border-slate-700 rounded-lg pl-8 pr-10 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono tracking-widest text-base"
+                        className="w-full bg-[#0a0f1d] border border-slate-700/80 hover:border-slate-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 rounded-xl pl-9 pr-10 py-2.5 text-xs text-slate-100 placeholder-slate-500 font-mono tracking-widest text-base transition-all outline-none"
                         required
                       />
                       <button
                         type="button"
                         onClick={() => setShowAdminPin(!showAdminPin)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
                       >
-                        {showAdminPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        {showAdminPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1">
+                    <p className="text-[10px] text-slate-400">
                       Faculty security PIN for all teachers is <strong className="text-purple-400 font-mono">2345</strong>.
                     </p>
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all flex items-center justify-center space-x-2"
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_28px_rgba(168,85,247,0.5)] transition-all flex items-center justify-center space-x-2 active:scale-[0.99] mt-2"
                   >
                     <span>Enter Admin Command Center</span>
                     <ArrowRight className="w-4 h-4" />
@@ -709,7 +738,7 @@ export default function Login() {
           </div>
 
           {/* Privacy Guarantee Box */}
-          <div className="mt-6 p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-start space-x-3">
+          <div className="mt-6 p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-start space-x-3">
             <Lock className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">

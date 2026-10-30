@@ -1,7 +1,8 @@
 // scripts/importCollegeRoster.js
 // Utility script to import college student and faculty rosters from CSV files.
-// Usage: node scripts/importCollegeRoster.js [path-to-csv]
-// Default: node scripts/importCollegeRoster.js college_students_sample.csv
+// Usage:
+//   node scripts/importCollegeRoster.js                              (imports default students & teachers CSVs)
+//   node scripts/importCollegeRoster.js [students.csv] [teachers.csv]
 
 import fs from 'fs';
 import path from 'path';
@@ -10,54 +11,98 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const csvFilePath = process.argv[2] || path.join(__dirname, '..', 'college_students_sample.csv');
+const studentsCsvPath = process.argv[2] || path.join(__dirname, '..', 'college_students_sample.csv');
+const teachersCsvPath = process.argv[3] || path.join(__dirname, '..', 'college_teachers_sample.csv');
 const rosterJsPath = path.join(__dirname, '..', 'src', 'data', 'collegeRoster.js');
 
-if (!fs.existsSync(csvFilePath)) {
-  console.error(`❌ CSV File not found: ${csvFilePath}`);
-  console.log(`Please provide a valid CSV path, e.g.: node scripts/importCollegeRoster.js my_students.csv`);
-  process.exit(1);
-}
-
-const rawCsv = fs.readFileSync(csvFilePath, 'utf8');
-const lines = rawCsv.split(/\r?\n/).filter(line => line.trim().length > 0);
-
-if (lines.length < 2) {
-  console.error('❌ CSV file must contain a header row and at least one student record.');
-  process.exit(1);
-}
-
-const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+// 1. Parse Students CSV
 const students = [];
+if (fs.existsSync(studentsCsvPath)) {
+  const rawStudentCsv = fs.readFileSync(studentsCsvPath, 'utf8');
+  const studentLines = rawStudentCsv.split(/\r?\n/).filter(line => line.trim().length > 0);
 
-for (let i = 1; i < lines.length; i++) {
-  const values = lines[i].split(',').map(v => v.trim());
-  if (values.length < headers.length) continue;
+  if (studentLines.length >= 2) {
+    const headers = studentLines[0].split(',').map(h => h.trim().toLowerCase());
+    for (let i = 1; i < studentLines.length; i++) {
+      const values = studentLines[i].split(',').map(v => v.trim());
+      if (values.length < headers.length) continue;
+      const record = {};
+      headers.forEach((h, idx) => {
+        record[h] = values[idx] || '';
+      });
 
-  const record = {};
-  headers.forEach((h, idx) => {
-    record[h] = values[idx] || '';
-  });
-
-  students.push({
-    roll: record.roll || record['roll no'] || record['roll_no'] || `STUDENT-${i}`,
-    name: record.name || record['full name'] || 'College Student',
-    email: record.email || record['email address'] || '',
-    department: record.department || record.dept || record.branch || 'School of Computer Science & Engineering',
-    batch: record.batch || record.year || '2024-2028',
-    dorm: record.dorm || record.hostel || 'Hostel Campus',
-    status: 'ACTIVE'
-  });
+      students.push({
+        roll: record.roll || record['roll no'] || record['roll_no'] || `STUDENT-${i}`,
+        name: record.name || record['full name'] || 'College Student',
+        email: record.email || record['email address'] || '',
+        department: record.department || record.dept || record.branch || 'School of Computer Science & Engineering',
+        batch: record.batch || record.year || '2024-2028',
+        dorm: record.dorm || record.hostel || 'Hostel Campus',
+        status: 'ACTIVE'
+      });
+    }
+    console.log(`✅ Parsed ${students.length} student records from ${path.basename(studentsCsvPath)}.`);
+  }
 }
 
-console.log(`✅ Successfully parsed ${students.length} student records from CSV.`);
+// 2. Parse Teachers CSV
+const faculty = [];
+if (fs.existsSync(teachersCsvPath)) {
+  const rawTeacherCsv = fs.readFileSync(teachersCsvPath, 'utf8');
+  const teacherLines = rawTeacherCsv.split(/\r?\n/).filter(line => line.trim().length > 0);
 
-// Generate the updated collegeRoster.js
+  if (teacherLines.length >= 2) {
+    const headers = teacherLines[0].split(',').map(h => h.trim().toLowerCase());
+    for (let i = 1; i < teacherLines.length; i++) {
+      const values = teacherLines[i].split(',').map(v => v.trim());
+      if (values.length < headers.length) continue;
+      const record = {};
+      headers.forEach((h, idx) => {
+        record[h] = values[idx] || '';
+      });
+
+      faculty.push({
+        id: record.faculty_id || record.id || `FAC-${100 + i}`,
+        name: record.name || record['full name'] || 'Faculty Member',
+        email: record.email || record['email address'] || '',
+        department: record.department || record.dept || 'Academic Faculty',
+        title: record.title || record.designation || 'Faculty Member',
+        clearanceLevel: record.clearance_level || record.clearance || 'LEVEL_3',
+        pin: record.pin || '2345'
+      });
+    }
+    console.log(`✅ Parsed ${faculty.length} faculty/teacher records from ${path.basename(teachersCsvPath)}.`);
+  }
+}
+
+// Fallback faculty if no CSV provided
+const finalFaculty = faculty.length > 0 ? faculty : [
+  {
+    id: 'FAC-101',
+    name: 'Prof. David Tan',
+    email: 'prof.tan@kyzera.edu',
+    title: 'Senior Faculty & Facilities Committee Lead',
+    department: 'Physical Infrastructure & Engineering',
+    clearanceLevel: 'LEVEL_3',
+    pin: '2345'
+  },
+  {
+    id: 'FAC-102',
+    name: 'Prof. Sarah Jenkins',
+    email: 'prof.jenkins@kyzera.edu',
+    title: 'Student Affairs Oversight Liaison',
+    department: 'Academic Affairs & Course Division',
+    clearanceLevel: 'LEVEL_3',
+    pin: '2345'
+  }
+];
+
+// Generate updated collegeRoster.js
 const updatedContent = `// src/data/collegeRoster.js
 // ============================================================================
 // OFFICIAL UNIVERSITY MASTER DIRECTORY & ENROLLMENT DATABASE
 // Generated via scripts/importCollegeRoster.js on ${new Date().toISOString()}
-// Total Enrolled Students: ${students.length}
+// Students: ${students.length} | Faculty / Staff: ${finalFaculty.length}
 // ============================================================================
 
 export const COLLEGE_INFO = {
@@ -75,29 +120,15 @@ export const COLLEGE_DEPARTMENTS = [
   'Department of Electrical & Electronics',
   'Department of Mechanical Engineering',
   'Department of Civil Engineering',
-  'School of Management & Business Studies'
+  'School of Management & Business Studies',
+  'Physical Infrastructure & Engineering',
+  'Academic Affairs & Course Division',
+  'Sanitation & Mechanical Facilities'
 ];
 
 export const COLLEGE_STUDENTS = ${JSON.stringify(students, null, 2)};
 
-export const COLLEGE_FACULTY = [
-  {
-    name: 'Prof. David Tan',
-    email: 'prof.tan@kyzera.edu',
-    title: 'Senior Faculty & Facilities Committee Lead',
-    department: 'Kyzera Physical Infrastructure & Engineering Faculty',
-    clearanceLevel: 'LEVEL_3',
-    pin: '2345'
-  },
-  {
-    name: 'Prof. Sarah Jenkins',
-    email: 'prof.jenkins@kyzera.edu',
-    title: 'Student Affairs Oversight Liaison',
-    department: 'Academic Affairs & Course Division',
-    clearanceLevel: 'LEVEL_3',
-    pin: '2345'
-  }
-];
+export const COLLEGE_FACULTY = ${JSON.stringify(finalFaculty, null, 2)};
 
 export const findStudentByRoll = (roll) => {
   if (!roll) return null;
@@ -109,6 +140,12 @@ export const findStudentByEmail = (email) => {
   if (!email) return null;
   const clean = email.trim().toLowerCase();
   return COLLEGE_STUDENTS.find(s => s.email.toLowerCase() === clean) || null;
+};
+
+export const findFacultyByEmail = (email) => {
+  if (!email) return null;
+  const clean = email.trim().toLowerCase();
+  return COLLEGE_FACULTY.find(f => f.email.toLowerCase() === clean) || null;
 };
 
 export const verifyCollegeEnrollment = (email, roll) => {
@@ -138,5 +175,4 @@ export const verifyCollegeEnrollment = (email, roll) => {
 `;
 
 fs.writeFileSync(rosterJsPath, updatedContent, 'utf8');
-console.log(`🎉 Updated ${rosterJsPath} with ${students.length} student records!`);
-
+console.log(`🎉 Master directory synced! ${students.length} students & ${finalFaculty.length} faculty members.`);

@@ -1,8 +1,8 @@
 // src/data/collegeRoster.js
 // ============================================================================
 // OFFICIAL UNIVERSITY MASTER DIRECTORY & ENROLLMENT DATABASE
-// Generated via scripts/importCollegeRoster.js on 2026-10-30T18:41:30.803Z
-// Total Enrolled Students: 7
+// Generated via scripts/importCollegeRoster.js on 2026-10-30T18:53:47.610Z
+// Students: 7 | Faculty / Staff: 7
 // ============================================================================
 
 export const COLLEGE_INFO = {
@@ -20,7 +20,10 @@ export const COLLEGE_DEPARTMENTS = [
   'Department of Electrical & Electronics',
   'Department of Mechanical Engineering',
   'Department of Civil Engineering',
-  'School of Management & Business Studies'
+  'School of Management & Business Studies',
+  'Physical Infrastructure & Engineering',
+  'Academic Affairs & Course Division',
+  'Sanitation & Mechanical Facilities'
 ];
 
 export const COLLEGE_STUDENTS = [
@@ -91,20 +94,67 @@ export const COLLEGE_STUDENTS = [
 
 export const COLLEGE_FACULTY = [
   {
-    name: 'Prof. David Tan',
-    email: 'prof.tan@kyzera.edu',
-    title: 'Senior Faculty & Facilities Committee Lead',
-    department: 'Kyzera Physical Infrastructure & Engineering Faculty',
-    clearanceLevel: 'LEVEL_3',
-    pin: '2345'
+    "id": "FAC-101",
+    "name": "Prof. David Tan",
+    "email": "prof.tan@kyzera.edu",
+    "department": "Physical Infrastructure & Engineering",
+    "title": "Senior Faculty & Facilities Committee Lead",
+    "clearanceLevel": "LEVEL_3",
+    "pin": "2345"
   },
   {
-    name: 'Prof. Sarah Jenkins',
-    email: 'prof.jenkins@kyzera.edu',
-    title: 'Student Affairs Oversight Liaison',
-    department: 'Academic Affairs & Course Division',
-    clearanceLevel: 'LEVEL_3',
-    pin: '2345'
+    "id": "FAC-102",
+    "name": "Prof. Sarah Jenkins",
+    "email": "prof.jenkins@kyzera.edu",
+    "department": "Academic Affairs & Course Division",
+    "title": "Student Affairs Oversight Liaison",
+    "clearanceLevel": "LEVEL_3",
+    "pin": "2345"
+  },
+  {
+    "id": "FAC-103",
+    "name": "Dr. Rajesh Sharma",
+    "email": "r.sharma@kyzera.edu",
+    "department": "School of Computer Science & Engineering",
+    "title": "Head of Department & AI Research Lead",
+    "clearanceLevel": "LEVEL_3",
+    "pin": "2345"
+  },
+  {
+    "id": "FAC-104",
+    "name": "Dr. Kavita Menon",
+    "email": "k.menon@kyzera.edu",
+    "department": "Department of Information Technology",
+    "title": "Professor & Network Security Overseer",
+    "clearanceLevel": "LEVEL_2",
+    "pin": "2345"
+  },
+  {
+    "id": "FAC-105",
+    "name": "Prof. Marcus Vance",
+    "email": "m.vance@kyzera.edu",
+    "department": "Sanitation & Mechanical Facilities",
+    "title": "Chief Campus Warden & Safety Officer",
+    "clearanceLevel": "LEVEL_3",
+    "pin": "2345"
+  },
+  {
+    "id": "FAC-106",
+    "name": "Dr. Sunita Rao",
+    "email": "s.rao@kyzera.edu",
+    "department": "Department of Electrical & Electronics",
+    "title": "Associate Professor & Lab Administrator",
+    "clearanceLevel": "LEVEL_2",
+    "pin": "2345"
+  },
+  {
+    "id": "FAC-107",
+    "name": "Prof. Vikram Malhotra",
+    "email": "v.malhotra@kyzera.edu",
+    "department": "School of Management & Business Studies",
+    "title": "Dean of Student Welfare",
+    "clearanceLevel": "LEVEL_3",
+    "pin": "2345"
   }
 ];
 
@@ -118,6 +168,12 @@ export const findStudentByEmail = (email) => {
   if (!email) return null;
   const clean = email.trim().toLowerCase();
   return COLLEGE_STUDENTS.find(s => s.email.toLowerCase() === clean) || null;
+};
+
+export const findFacultyByEmail = (email) => {
+  if (!email) return null;
+  const clean = email.trim().toLowerCase();
+  return COLLEGE_FACULTY.find(f => f.email.toLowerCase() === clean) || null;
 };
 
 export const verifyCollegeEnrollment = (email, roll) => {

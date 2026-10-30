@@ -1,0 +1,9 @@
+faculty_id,name,email,department,title,clearance_level,pin
+FAC-101,Prof. David Tan,prof.tan@kyzera.edu,Physical Infrastructure & Engineering,Senior Faculty & Facilities Committee Lead,LEVEL_3,2345
+FAC-102,Prof. Sarah Jenkins,prof.jenkins@kyzera.edu,Academic Affairs & Course Division,Student Affairs Oversight Liaison,LEVEL_3,2345
+FAC-103,Dr. Rajesh Sharma,r.sharma@kyzera.edu,School of Computer Science & Engineering,Head of Department & AI Research Lead,LEVEL_3,2345
+FAC-104,Dr. Kavita Menon,k.menon@kyzera.edu,Department of Information Technology,Professor & Network Security Overseer,LEVEL_2,2345
+FAC-105,Prof. Marcus Vance,m.vance@kyzera.edu,Sanitation & Mechanical Facilities,Chief Campus Warden & Safety Officer,LEVEL_3,2345
+FAC-106,Dr. Sunita Rao,s.rao@kyzera.edu,Department of Electrical & Electronics,Associate Professor & Lab Administrator,LEVEL_2,2345
+FAC-107,Prof. Vikram Malhotra,v.malhotra@kyzera.edu,School of Management & Business Studies,Dean of Student Welfare,LEVEL_3,2345
+
