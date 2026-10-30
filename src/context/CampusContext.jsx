@@ -219,9 +219,23 @@ export function CampusProvider({ children }) {
   };
 
   // Navigation Helper
-  const navigateTo = (page, id = null) => {
+  const navigateTo = (page, id = null, userOverride = null) => {
+    // Determine active user using override, current state, or localStorage
+    const activeUser = userOverride || currentUser || (() => {
+      try {
+        const stored = localStorage.getItem('kyzera_user');
+        return stored ? JSON.parse(stored) : null;
+      } catch {
+        return null;
+      }
+    })();
+
     if (page === 'admin' || page === 'privacy-audit') {
-      const isTeacher = currentUser && (currentUser.role?.includes('Teacher') || currentUser.role?.includes('Admin'));
+      const isTeacher = activeUser && (
+        activeUser.role?.includes('Teacher') ||
+        activeUser.role?.includes('Admin') ||
+        activeUser.role?.toLowerCase().includes('faculty')
+      );
       if (!isTeacher) {
         showToast(`Access restricted: ${page === 'admin' ? 'Admin Dashboard' : 'Privacy Audit'} is only accessible to verified faculty and teachers.`, 'error');
         setCurrentPage('dashboard');
@@ -251,7 +265,7 @@ export function CampusProvider({ children }) {
     localStorage.setItem('kyzera_auth', 'true');
     localStorage.setItem('kyzera_current_page', 'dashboard');
     showToast(`Logged in as Student: ${studentUser.name} (Identity masked publicly as ${studentUser.anonymousId})`, 'success');
-    navigateTo('dashboard');
+    navigateTo('dashboard', null, studentUser);
   };
 
   const loginAsAdmin = (customData = null) => {
@@ -262,7 +276,7 @@ export function CampusProvider({ children }) {
     localStorage.setItem('kyzera_auth', 'true');
     localStorage.setItem('kyzera_current_page', 'admin');
     showToast(`Logged in as Teacher / Admin: ${adminUser.name} (Access granted to student submitter identities)`, 'success');
-    navigateTo('admin');
+    navigateTo('admin', null, adminUser);
   };
 
   const logout = () => {

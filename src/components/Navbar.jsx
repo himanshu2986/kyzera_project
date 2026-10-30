@@ -44,7 +44,10 @@ export default function Navbar() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const isTeacherOrAdmin = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
+  const isTeacherOrAdmin =
+    currentUser?.role?.includes('Admin') ||
+    currentUser?.role?.includes('Teacher') ||
+    currentUser?.role?.toLowerCase().includes('faculty');
 
   // Role-based Nav Links
   const navLinks = isAuthenticated

@@ -17,7 +17,10 @@ import PrivacyAudit from './pages/PrivacyAudit';
 
 function AppContent() {
   const { currentPage, isAuthenticated, currentUser } = useCampus();
-  const isTeacherOrAdmin = currentUser?.role?.includes('Admin') || currentUser?.role?.includes('Teacher');
+  const isTeacherOrAdmin =
+    currentUser?.role?.includes('Admin') ||
+    currentUser?.role?.includes('Teacher') ||
+    currentUser?.role?.toLowerCase().includes('faculty');
 
   const renderPage = () => {
     // When not logged in, first and default page is strictly Login (or About Kyzera if clicked)
