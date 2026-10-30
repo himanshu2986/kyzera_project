@@ -93,12 +93,12 @@ npm install
 Create or verify the `.env` file in the project root:
 ```env
 # Google Cloud Firestore Configuration
-VITE_FIREBASE_API_KEY=AIzaSyD3IahRv4T-l1ulJq87lUw-UfTwgQZ8GDU
-VITE_FIREBASE_AUTH_DOMAIN=planning-with-ai-7ade4.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=planning-with-ai-7ade4
-VITE_FIREBASE_STORAGE_BUCKET=planning-with-ai-7ade4.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=518079060102
-VITE_FIREBASE_APP_ID=1:518079060102:web:97b80e047bb5b853165907
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
 
 # Gmail SMTP Email Dispatch Credentials (Optional)
 GMAIL_USER=your-email@gmail.com
