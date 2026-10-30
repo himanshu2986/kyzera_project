@@ -59,3 +59,13 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Dark mode native dropdown styling across all browsers */
+select {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+

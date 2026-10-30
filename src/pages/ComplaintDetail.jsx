@@ -205,12 +205,12 @@ export default function ComplaintDetail() {
                       }
                       updateTicketStatus(ticket.id, newStatus, note);
                     }}
-                    className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
+                    className="bg-[#0f172a] text-xs font-bold text-white focus:outline-none cursor-pointer px-2 py-1 rounded-lg border border-purple-500/30"
                   >
-                    <option value="Submitted">Submitted</option>
-                    <option value="Under Review">Under Review</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Resolved">Resolved</option>
+                    <option value="Submitted" className="bg-[#0f172a] text-white">Submitted</option>
+                    <option value="Under Review" className="bg-[#0f172a] text-white">Under Review</option>
+                    <option value="In Progress" className="bg-[#0f172a] text-white">In Progress</option>
+                    <option value="Resolved" className="bg-[#0f172a] text-white">Resolved</option>
                   </select>
                 </div>
               ) : (
