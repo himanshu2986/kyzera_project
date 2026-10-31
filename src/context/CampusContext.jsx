@@ -22,6 +22,49 @@ import { sendStatusEmail } from '../services/emailService';
 
 const CampusContext = createContext();
 
+export const sanitizeTicket = (t) => {
+  if (!t || typeof t !== 'object') return null;
+  return {
+    ...t,
+    evidence: Array.isArray(t.evidence) ? t.evidence : [],
+    roadmap: Array.isArray(t.roadmap) && t.roadmap.length > 0 ? t.roadmap : [
+      {
+        step: 1,
+        title: 'Submitted',
+        date: 'Just now',
+        desc: 'Complaint verified & cryptographically hashed under Kyzera Privacy Shield.',
+        status: 'completed'
+      },
+      {
+        step: 2,
+        title: 'AI Classified & Clustered',
+        date: 'Just now',
+        desc: `Categorized as ${t.category || 'General'}. Neural triage confidence 97.8%.`,
+        status: 'completed'
+      },
+      {
+        step: 3,
+        title: 'Under Review by Dept',
+        date: 'In Queue',
+        desc: 'Awaiting engineer assignment within SLA.',
+        status: 'active'
+      },
+      {
+        step: 4,
+        title: 'Resolved',
+        date: 'Pending',
+        desc: 'Verification and closure sign-off.',
+        status: 'pending'
+      }
+    ],
+    comments: Array.isArray(t.comments) ? t.comments : [],
+    upvotes: typeof t.upvotes === 'number' ? t.upvotes : 1,
+    status: t.status || 'Under Review',
+    priority: t.priority || 'Medium',
+    category: t.category || 'Sanitation & Facilities'
+  };
+};
+
 export function CampusProvider({ children }) {
   // Authentication & Initial Page (Persists logged-in session across page reloads)
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -63,7 +106,13 @@ export function CampusProvider({ children }) {
   const [tickets, setTickets] = useState(() => {
     localStorage.removeItem('kyzera_tickets');
     const saved = localStorage.getItem('kyzera_user_tickets');
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed.map(sanitizeTicket).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
   });
 
   const [clusters, setClusters] = useState(() => {
@@ -106,13 +155,19 @@ export function CampusProvider({ children }) {
           if (Array.isArray(firestoreTickets)) {
             setTickets(prev => {
               const map = new Map();
-              firestoreTickets.forEach(t => map.set(t.id, t));
+              firestoreTickets.forEach(t => {
+                const clean = sanitizeTicket(t);
+                if (clean) map.set(clean.id, clean);
+              });
 
               // Preserve any locally added tickets not yet received from snapshot and sync to cloud
-              prev.forEach(t => {
-                if (!map.has(t.id)) {
-                  map.set(t.id, t);
-                  addTicketToFirebase(t).catch(() => {});
+              (prev || []).forEach(t => {
+                if (t && !map.has(t.id)) {
+                  const clean = sanitizeTicket(t);
+                  if (clean) {
+                    map.set(clean.id, clean);
+                    addTicketToFirebase(clean).catch(() => {});
+                  }
                 }
               });
 

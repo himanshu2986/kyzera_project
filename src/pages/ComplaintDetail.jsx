@@ -335,7 +335,7 @@ export default function ComplaintDetail() {
               <div className="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">
                 <div className="flex items-center space-x-2">
                   <span>Attached Evidence Gallery</span>
-                  <span className="text-slate-500 font-normal">({ticket.evidence.length} files)</span>
+                  <span className="text-slate-500 font-normal">({(ticket.evidence || []).length} files)</span>
                 </div>
                 <span className="text-[10px] text-blue-400 font-mono">
                   SHA-256 ENCRYPTED PROOF
@@ -343,7 +343,7 @@ export default function ComplaintDetail() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {ticket.evidence.map((file, i) => (
+                {(ticket.evidence || []).map((file, i) => (
                   <div
                     key={i}
                     onClick={() => {
@@ -625,7 +625,7 @@ export default function ComplaintDetail() {
 
             {/* Stepper Steps */}
             <div className="space-y-5 relative before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-[2px] before:bg-slate-800">
-              {ticket.roadmap.map((step, idx) => {
+              {(ticket.roadmap || []).map((step, idx) => {
                 const isCompleted = step.status === 'completed' || (ticket.status === 'Resolved');
                 const isActive = step.status === 'active' && ticket.status !== 'Resolved';
 
