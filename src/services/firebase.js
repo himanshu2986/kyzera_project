@@ -2,7 +2,7 @@
 // Connects real-time Cloud Firestore for complaints, suggestions, clusters, and live presence.
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
 import {
   getFirestore,
   collection,
@@ -95,9 +95,27 @@ export const signInWithGoogle = async () => {
   }
 };
 
+// Auto-authenticate anonymously if rules require authenticated users
+export const ensureFirebaseAuth = async () => {
+  if (!auth && app) {
+    auth = getAuth(app);
+  }
+  if (!auth) return null;
+  if (!auth.currentUser) {
+    try {
+      await signInAnonymously(auth);
+    } catch (err) {
+      // If anonymous auth is not enabled in Firebase Console, continues unauthenticated
+    }
+  }
+  return auth.currentUser;
+};
+
 // Realtime Firestore Subscriptions & Operations
 export const subscribeToTicketsRealtime = (onUpdate, onError) => {
   if (!isFirebaseReady()) return () => {};
+
+  ensureFirebaseAuth().catch(() => {});
 
   try {
     return onSnapshot(
@@ -123,6 +141,7 @@ export const subscribeToTicketsRealtime = (onUpdate, onError) => {
 
 export const addTicketToFirebase = async (ticket) => {
   if (!isFirebaseReady()) return false;
+  await ensureFirebaseAuth().catch(() => {});
   try {
     const ticketRef = doc(db, 'tickets', ticket.id);
     await setDoc(ticketRef, {
