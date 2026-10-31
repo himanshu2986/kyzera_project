@@ -28,12 +28,12 @@ export const getStoredFirebaseConfig = () => {
   }
 
   return {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || ''
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyD3IahRv4T-l1ulJq87lUw-UfTwgQZ8GDU',
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'planning-with-ai-7ade4.firebaseapp.com',
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'planning-with-ai-7ade4',
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'planning-with-ai-7ade4.firebasestorage.app',
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '518079060102',
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:518079060102:web:97b80e047bb5b853165907'
   };
 };
 

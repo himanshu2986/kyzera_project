@@ -87,10 +87,39 @@ export function CampusProvider({ children }) {
   useEffect(() => {
     if (isFirebaseReady()) {
       setIsFirebaseConnected(true);
+
+      // On boot, sync any existing local tickets into Cloud Firestore so all browser windows/devices get them
+      const saved = localStorage.getItem('kyzera_user_tickets');
+      if (saved) {
+        try {
+          const localTickets = JSON.parse(saved);
+          if (Array.isArray(localTickets) && localTickets.length > 0) {
+            localTickets.forEach(t => {
+              addTicketToFirebase(t).catch(() => {});
+            });
+          }
+        } catch {}
+      }
+
       const unsubscribe = subscribeToTicketsRealtime(
         (firestoreTickets) => {
-          if (firestoreTickets && firestoreTickets.length > 0) {
-            setTickets(firestoreTickets);
+          if (Array.isArray(firestoreTickets)) {
+            setTickets(prev => {
+              const map = new Map();
+              firestoreTickets.forEach(t => map.set(t.id, t));
+
+              // Preserve any locally added tickets not yet received from snapshot and sync to cloud
+              prev.forEach(t => {
+                if (!map.has(t.id)) {
+                  map.set(t.id, t);
+                  addTicketToFirebase(t).catch(() => {});
+                }
+              });
+
+              return Array.from(map.values()).sort(
+                (a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
+              );
+            });
           }
         },
         (err) => {
